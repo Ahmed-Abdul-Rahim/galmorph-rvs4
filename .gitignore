@@ -1,89 +1,16 @@
-# ==========================================
-# Python
-# ==========================================
+# build artifacts / executables
+*.o
+*.out
+*.elf
+galaxy_app
+orig_app
+
+# python
 __pycache__/
 *.py[cod]
-*$py.class
-.venv/
-venv/
-ENV/
-build/
-dist/
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ipynb_checkpoints/
 
-
-# ==========================================
-# C / C++
-# ==========================================
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.o
-*.obj
-*.ko
-*.so
-*.so.*
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-*.elf
-
-# Build directories
-[Bb]uild/
-[Bb]in/
-
-# ==========================================
-# RISC-V / Assembly / Embedded
-# ==========================================
-# Toolchain generated files
-*.map
-*.lst
-*.hex
-*.bin
-*.srec
-*.dump
-
-# Linker scripts (if they are generated)
-# *.ld (Optional: keep if you wrote them manually)
-
-# ==========================================
-# IDEs and Editors
-# ==========================================
+# editors / OS
 .vscode/
 .idea/
 *.swp
-*.swo
-*~
 .DS_Store
-
-# ==========================================
-# Logs and Databases
-# ==========================================
-*.log
-*.csv
-*.sqlite3
-data/
-
-# ==========================================
-# Models and Checkpoints
-# ==========================================
-*.pt
-*.pth
-*.ckpt
-model_params/
-
-# ==========================================
-# Miscellaneous
-# ==========================================
-docs/
-.temp/
-solution/
-images/

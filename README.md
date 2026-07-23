@@ -1,271 +1,158 @@
-# S4 Galaxy Classifier (C Implementation)
+# S4D Galaxy Classifier — Optimized C (single file)
 
-A **C implementation** of our neural network for **galaxy morphology classification** using a **Structured State Space (S4D) model**.
+A from-scratch C implementation of a diagonal Structured-State-Space (**S4D**)
+galaxy-morphology classifier, optimized down to **1.82 billion** dynamic instructions —
+**50× fewer** than the original convolution baseline — with **no libm** in the forward
+pass and **identical predictions**.
 
-The project performs **end-to-end inference on 64×64 grayscale galaxy images** without relying on external machine learning or math libraries. All numerical operations are implemented manually for portability and control over numerical precision.
+It classifies a 64×64 grayscale image into one of four classes
+(**Round Elliptical, In-between Elliptical, Cigar-shaped Elliptical, Edge-on Disk**):
 
-The classifier predicts one of four galaxy morphology classes:
-
-* Round Elliptical
-* In-between Elliptical
-* Cigar-shaped Elliptical
-* Edge-on Disk
-
-The pipeline includes **Hilbert curve scanning, sequence modeling using S4D layers, nonlinear activations, and final classification via softmax**.
-
----
-## Quick Start (Clean Clone Setup)
-
-To verify the implementation from a fresh clone, run the following:
-
-```bash
-# 1. Enter the source directory
-cd c
-
-# 2. Build the inference and test applications
-make
-
-# 3. Run a sample inference demo
-./galaxy_app ../test_data/sample_0_img.bin
+```
+image → Hilbert scan → linear up-projection → S4D → GELU → S4D → GELU
+      → take-last-timestep → linear head → softmax
 ```
 
-# Features
-
-* Pure **C implementation** of a neural network inference pipeline
-* Custom **math library** - no use of external libraries
-* Implementation of **Structured State Space (S4D) sequence modeling**
-* **Hilbert curve scan** for converting 2D images into 1D sequences
-* End-to-end **numerical validation against Python reference**
-* **Benchmarking script** for compiler optimization analysis
+Everything is in **one file, `galaxy_s4d.c`** — math, layers, forward pass, and `main`.
+The full optimization story is in [`docs/`](docs/00-overview.md).
 
 ---
 
+## 1. What's in this branch
 
-
-
-The Hilbert scan preserves spatial locality when transforming the image into a sequence of length **4096**.
+```
+galaxy_s4d.c            THE implementation — math + all layers + forward pass + main
+profile.h               per-layer instruction counter (RISC-V instret CSR, or x86 perf)
+Makefile                one-command build (host or RISC-V)
+model_params/
+  model_weights.bin     the flat weight blob the program loads (21124 floats)
+  galaxys4-30609.pth    the trained PyTorch checkpoint (reference / to regenerate weights)
+test_data/              per-sample inputs + PyTorch reference outputs (for validation)
+docs/                   one markdown per optimization, fully explained
+```
 
 ---
 
-## Repository Structure
+## 2. Quick start (host, ~5 seconds)
 
-```
-.
-├── c/                         # Core C implementation
-│   ├── main.c                 # Inference entry point
-│   ├── test.c                 # Validation entry point
-│   ├── nn.c                   # Layer implementations
-│   ├── nn.h                   # Layer headers
-│   ├── math.c                 # Math primitives
-│   ├── math.h                 # Math headers
-│   ├── Makefile               # Build system
-│   ├──benchmark.sh           # Optimization script
-|   └── README.md                  # Usage instructions
-├── model_params/              # Parameter storage
-│   └── model_weights.bin      # Binary weights
-├── test_data/                 # Validation split samples
-│   ├── sample_*_img.bin       # Test input images
-│   └── sample_*_ref.bin       # Python reference tensors
-└──export/                    # Automation and charts
-    ├── generate_test_data.py  # Data generation script
-    ├── plot_benchmarks.py     # Timing analysis plotter 
-    ├── plot_errors.py         # Error distribution plotter
-    ├── plot_instructions.py   # Instruction count plotter 
-    ├── run_test.py            # Batch testing script 
-    └── charts/                # Figure storage 
-```
-
-External assets required at runtime:
-
-```
-../model_params/model_weights.bin
-../test_data/input_image.bin
-```
-
-These files contain the **trained model parameters** and **test input image** respectively.
-
----
-
-# Building the Project
-
-Compile both applications using the provided Makefile.
+Run from the **repository root** (the program looks for `model_params/model_weights.bin`):
 
 ```bash
 make
+./galaxy_app test_data/sample_0_img.bin
 ```
 
-This produces two executables:
+Expected:
 
 ```
-galaxy_app
-test_app
+Class probabilities
+  0  Round Elliptical         :  88.17%
+  ...
+Prediction: Round Elliptical
+
+Per-layer dynamic instruction counts
+  hilbert      :  ...
+  ...
 ```
 
-Clean build artifacts:
-
-```bash
-make clean
-```
+> On x86 the per-layer counts need the Linux `perf` counter. If they read `0`, either
+> run `sudo ./galaxy_app ...` or `sudo sysctl -w kernel.perf_event_paranoid=-1`. The
+> **classification always works** regardless; only the counter needs the permission.
+> The *real* instruction numbers come from the RISC-V build below.
 
 ---
 
-# Running Inference
+## 3. Build & measure on RISC-V (the real numbers)
 
-Run the standalone inference application by passing a test image as an argument:
+The vectorized (RVV 1.0) kernels and the exact `instret` counts require a RISC-V
+toolchain and a `VLEN = 256` simulator:
 
 ```bash
-./galaxy_app ../test_data/sample_0_img.bin
+# build with the vector extension + hardware float
+make CC=riscv32-unknown-elf-gcc CFLAGS="-O2 -march=rv32gcv -mabi=ilp32f"
+
+# run under QEMU at VLEN=256 (matches the VeeR config; the default 128 is WRONG here)
+qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./galaxy_app test_data/sample_0_img.bin
 ```
 
-The program performs the following:
-
-1. Load model weights
-2. Load a test input image
-3. Run the full neural network forward pass
-4. Output the predicted probability distribution
-
-Example output:
-
-```
-====================================
- Galaxy Class Predictions
-====================================
-Class 0 [Round Elliptical]        : 18.45%
-Class 1 [In-between Elliptical]   :  9.02%
-Class 2 [Cigar-shaped Elliptical] : 51.68%
-Class 3 [Edge-on Disk]            : 20.86%
-====================================
- FINAL PREDICTION: Cigar-shaped Elliptical
-====================================
-```
+The per-layer instruction counts now come straight from the `instret` CSR — exact and
+inlining-proof. See [`docs/08-measurement-methodology.md`](docs/08-measurement-methodology.md).
 
 ---
 
-# Validation
+## 4. Validate correctness
 
-The project includes an **end-to-end validation tool** that compares C inference results with a Python reference implementation.
-
-Run:
+The prediction must match the PyTorch reference for every labeled sample (0–4):
 
 ```bash
-./test_app ../test_data/sample_0
-```
-
-The program computes:
-
-* Mean Squared Error (MSE)
-* Mean Absolute Error (MAE)
-
-Example output:
-
-```
-====================================
-End-to-End Pipeline Validation
-====================================
-Mean Squared Error: 3.14e-07
-Mean Absolute Error: 2.11e-04
-PASSED (Predictions match Python closely!)
-====================================
-```
-
-Passing thresholds ensure numerical equivalence between implementations.
-
----
-##  Automated Batch Validation (Task 2)
-The rubric requires rigorous validation across multiple samples. We provide a Python wrapper to automate layer-by-layer validation across the entire test suite. 
-
-```bash
-cd ../export
-python3 run_test.py
- ```
----
-##  Benchmarking (Task 3)
-
-Compiler optimization levels can significantly affect runtime performance.
-To reproduce the performance analysis and instruction reduction results found in the report
-Run the benchmarking script:
-
-```bash
-cat << 'EOF' > benchmark.sh
-#!/bin/bash
-levels=("-O0" "-O1" "-O2" "-O3" "-Ofast")
-echo "Optimization Level | Inference Time (seconds)"
-echo "-------------------|------------------------"
-
-# We define the image path here
-IMAGE="../test_data/sample_0_img.bin"
-
-for opt in "${levels[@]}"; do
-    # Added -fno-strict-aliasing so GCC -O3 doesn't break your Hilbert index pointer!
-    gcc $opt -fno-strict-aliasing -Wall -Wextra -o galaxy_bench main.c nn.c math.c
-    
-    start=$(date +%s.%N)
-    # Actually pass the image argument to the program!
-    ./galaxy_bench "$IMAGE" > /dev/null 2>&1
-    end=$(date +%s.%N)
-    
-    runtime=$(echo "$end - $start" | bc)
-    
-    # %.3f rounds it to 3 decimal places so it looks clean
-    printf "%-18s | %.3f\n" "$opt" "$runtime"
+for s in 0 1 2 3 4; do
+  echo -n "sample $s -> "; ./galaxy_app test_data/sample_${s}_img.bin | grep Prediction
 done
-rm -f galaxy_bench
-EOF
-
-# Run it immediately
-bash benchmark.sh
 ```
 
-Example output:
+Expected classes:
 
-```
-Optimization Level | Inference Time (seconds)
--------------------|------------------------
--O0                | 7.704
--O1                | 4.792
--O2                | 4.160
--O3                | 4.096
--Ofast             | 4.023
-```
+| Sample | Expected class |
+|--:|---|
+| 0 | Round Elliptical |
+| 1 | Round Elliptical *(baked-image variant differs; see note)* |
+| 2 | Round Elliptical |
+| 3 | Edge-on Disk |
+| 4 | In-between Elliptical |
 
-This script automatically recompiles the model at different optimization levels and measures execution time.
+Each `test_data/sample_N_softmax.bin` holds the reference probabilities; the program's
+softmax matches them to fp32 tolerance. `test_data/` also contains per-layer reference
+tensors (`sample_N_hilbert.bin`, `_uproject.bin`, `_gelu_1.bin`, …) for finer-grained
+MSE checks if you want them.
+
+> Note: the S4D layers sit at a ~1e-4 MAE precision floor from the custom fp32
+> polynomial math — this is expected and does not change the predicted class.
 
 ---
 
-# Custom Math Library
+## 5. Weight format (`model_params/model_weights.bin`)
 
-The project includes a lightweight math implementation to avoid external dependencies.
+A single flat little-endian blob, read in this order (see `model_forward` in
+`galaxy_s4d.c`):
 
-Implemented functions include:
+```
+hilbert_scan.indices   4096 × int32
+uproject.weight        64 × 1  float32
+uproject.bias          64      float32
+s4_1: log_dt(64), log_A_real(64×32), A_imag(64×32), C(64×32×2 interleaved re/im), D(64)
+s4_2: same shape as s4_1
+fc.weight              4 × 64  float32
+fc.bias                4       float32
+```
 
-* `my_exp` – exponential function using Taylor series
-* `my_sin` / `my_cos` – trigonometric functions via Taylor expansion
-* `my_tanh` – hyperbolic tangent
-* `my_sqrt` – square root via Babylonian method
-
-
----
-
-# Numerical Precision
-
-The implementation is validated against our Python codebase to ensure numerical correctness.
-
-Target tolerances:
-
-| Layer         | Tolerance   |
-| ------------- | ----------- |
-| Hilbert Scan  | MSE < 1e-12 |
-| Linear Layers | MSE < 1e-8  |
-| S4D Layers    | MSE < 1e-7  |
-| GELU          | MSE < 1e-7  |
-| Softmax       | MSE < 1e-8  |
+Total = 21124 float-sized words. To regenerate it (and the reference tensors) from the
+checkpoint `model_params/galaxys4-30609.pth`, use the export script on the Python branch
+of this project.
 
 ---
 
-# Requirements
+## 6. The optimization story
 
-* Binary model weights
-* Binary test input image
-* **Compiler**: GCC >= 7.0 (supporting C11 standard) 
-* **Python**: Version 3.11+ (required for automated validation scripts) 
-* **Tools**: Valgrind (required for instruction count analysis in Task 3) 
+| # | Change | Instructions | Doc |
+|--:|---|--:|---|
+| — | Original: O(L²) conv + Taylor math | 91.22 B | — |
+| 1 | recurrent O(L·N) scan | 6.87 B | [01](docs/01-recurrent-scan.md) |
+| 2 | Remez minimax math | 5.74 B | [02](docs/02-remez-math.md) |
+| 3–5 | scan refinements | 3.09 B | [03](docs/03-scan-refinements.md) |
+| 8 | RVV vectorized scan | 2.68 B | [04](docs/04-rvv-vectorization.md) |
+| 12 | fold B̄ into C̄ (−30%) | 1.87 B | [05](docs/05-fold-b-into-c.md) |
+| 13–14 | inline math + vectorized GELU | **1.82 B** | [06](docs/06-inline-math-and-gelu.md) |
+
+Things that were tried and **didn't** help are documented too —
+[`docs/07-negative-results.md`](docs/07-negative-results.md) — including why the
+reduction couldn't be made cheaper under QEMU.
+
+---
+
+## 7. Requirements
+
+- **Host build:** any C99 compiler (`gcc`/`clang`). For the per-layer counter on x86,
+  Linux with `perf` access.
+- **RISC-V build:** `riscv32-unknown-elf-gcc` with `rv32gcv` / `ilp32f`, and
+  `qemu-riscv32` (or VeeR-iSS) run at **`vlen=256`**.
+- No third-party libraries; the math is all in `galaxy_s4d.c`.
