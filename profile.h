@@ -16,9 +16,23 @@ static inline void init_inst_counter(void) {
 }
 
 static inline uint64_t get_inst_count(void) {
+#if __riscv_xlen == 32
+    /* RV32: instret is 64-bit but each CSR read returns only 32 bits.
+     * Read low (instret) + high (instreth); re-read high to guard against a
+     * low-word rollover between the two reads. A single `rdinstret` here would
+     * leave the high 32 bits as garbage. */
+    uint32_t lo, hi, hi2;
+    do {
+        asm volatile("csrr %0, instreth" : "=r"(hi));
+        asm volatile("csrr %0, instret"  : "=r"(lo));
+        asm volatile("csrr %0, instreth" : "=r"(hi2));
+    } while (hi != hi2);
+    return ((uint64_t)hi << 32) | lo;
+#else
     uint64_t val;
     asm volatile("rdinstret %0" : "=r"(val));
     return val;
+#endif
 }
 
 #else
