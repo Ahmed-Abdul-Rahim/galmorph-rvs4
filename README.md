@@ -18,6 +18,19 @@ The full optimization story is in [`docs/`](docs/00-overview.md).
 
 ---
 
+## 0. Get this branch
+
+```bash
+git clone https://github.com/ahsan-c0ding/S4-Enhancement-Exploration.git
+cd S4-Enhancement-Exploration
+git switch c        # use `switch`, not `checkout` -- the default branch has a `c/`
+                    # folder, which makes `git checkout c` ambiguous
+```
+
+All commands below are run from this directory (the repo root).
+
+---
+
 ## 1. What's in this branch
 
 ```
