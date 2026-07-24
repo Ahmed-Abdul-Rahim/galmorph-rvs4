@@ -54,8 +54,10 @@ for O in 0 2 3; do
 done
 ```
 
-These are **real x86** retired-instruction counts — good for before/after on this
-machine, but not the RISC-V figures (different ISA). For those, see §3.
+These are **real x86** retired-instruction counts. Note: inside a VM/WSL the host PMU
+is often not exposed, so these may read `0` even with the sysctl set — in that case use
+the RISC-V measurement in §3, which reads a real counter inside QEMU. Either way, the
+RISC-V numbers (§3) are the ones the study reports.
 
 ---
 
@@ -85,35 +87,31 @@ config); the QEMU default of 128 would process half of each 32-lane group and be
 
 ---
 
-## 4. Validate correctness
+## 4. Validate correctness — one command, no python
 
-The prediction must match the PyTorch reference for every labeled sample (0–4):
+The program has a built-in validation mode: it runs samples 0-4 and compares its softmax
+to the PyTorch reference (`test_data/sample_N_softmax.bin`).
 
 ```bash
-for s in 0 1 2 3 4; do
-  echo -n "sample $s -> "; ./galaxy_app test_data/sample_${s}_img.bin | grep Prediction
-done
+make
+./galaxy_app --validate
 ```
 
-Expected classes:
+Expected:
 
-| Sample | Expected class |
-|--:|---|
-| 0 | Round Elliptical |
-| 1 | Round Elliptical *(baked-image variant differs; see note)* |
-| 2 | Round Elliptical |
-| 3 | Edge-on Disk |
-| 4 | In-between Elliptical |
+```
+Validating against PyTorch reference (test_data/):
+  sample 0: Round Elliptical       vs ref Round Elliptical       | max prob diff 2.62e-05 | MATCH
+  sample 1: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 9.34e-05 | MATCH
+  sample 2: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 1.06e-09 | MATCH
+  sample 3: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 2.33e-06 | MATCH
+  sample 4: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 2.38e-07 | MATCH
 
-Each `test_data/sample_N_softmax.bin` holds the reference probabilities; the program's
-softmax matches them to fp32 tolerance. `test_data/` also contains per-layer reference
-tensors (`sample_N_hilbert.bin`, `_uproject.bin`, `_gelu_1.bin`, …) for finer-grained
-MSE checks if you want them.
+5/5 classes match the PyTorch reference  (probabilities match to the fp32 floor)
+```
 
-> Note: the S4D layers sit at a ~1e-4 MAE precision floor from the custom fp32
-> polynomial math — this is expected and does not change the predicted class.
-
----
+The `max prob diff ~1e-5` is the fp32 precision floor of the from-scratch polynomial math;
+the **classification is identical to PyTorch** on every sample.
 
 ## 5. Weight format (`model_params/model_weights.bin`)
 
@@ -156,8 +154,9 @@ reduction couldn't be made cheaper under QEMU.
 
 ## 7. Requirements
 
-- **Host build:** any C99 compiler (`gcc`/`clang`). For the per-layer counter on x86,
-  Linux with `perf` access.
+- **Host build & validation:** any C99 compiler (`gcc`/`clang`). Nothing else — the
+  `--validate` check is built in (no python/numpy). Host per-layer counts additionally
+  need Linux `perf` access (often unavailable in a VM/WSL; use the RISC-V path instead).
 - **RISC-V build:** `riscv32-unknown-elf-gcc` with `rv32gcv` / `ilp32f`, and
   `qemu-riscv32` (or VeeR-iSS) run at **`vlen=256`**.
 - No third-party libraries; the math is all in `galaxy_s4d.c`.

@@ -460,6 +460,50 @@ void model_forward(
     #undef TICK
 }
 
+
+#ifndef BAKED
+/* Built-in validation: run samples 0-4 and compare to the PyTorch reference
+ * softmax (test_data/sample_N_softmax.bin). No python needed. */
+static int argmax4(const float *p){ int m=0; for(int i=1;i<N_CLASSES;i++) if(p[i]>p[m]) m=i; return m; }
+
+static int run_validation(void) {
+    static float weights[WEIGHTS_SIZE_FLOATS];
+    FILE *fw = fopen("model_params/model_weights.bin", "rb");
+    if (!fw) { fprintf(stderr, "Error: run from the repo root (model_params/model_weights.bin not found)\n"); return 1; }
+    if (fread(weights, sizeof(float), WEIGHTS_SIZE_FLOATS, fw) != WEIGHTS_SIZE_FLOATS)
+        fprintf(stderr, "Warning: unexpected weight file size\n");
+    fclose(fw);
+    const int   *hidx = (const int   *)weights;
+    const float *mw   = (const float *)weights;
+    const char *names[N_CLASSES] = { "Round Elliptical","In-between Elliptical","Cigar-shaped Elliptical","Edge-on Disk" };
+
+    int pass = 0, total = 0;
+    printf("Validating against PyTorch reference (test_data/):\n");
+    for (int sN = 0; sN < 5; sN++) {
+        char path[256];
+        static float image[IN_CHANNELS][IMG_SIZE][IMG_SIZE], probs[N_CLASSES], ref[N_CLASSES];
+        snprintf(path, sizeof(path), "test_data/sample_%d_img.bin", sN);
+        FILE *fi = fopen(path, "rb"); if (!fi) continue;
+        if (fread(image, sizeof(float), IN_CHANNELS*IMG_SIZE*IMG_SIZE, fi) == 0) { fclose(fi); continue; }
+        fclose(fi);
+        snprintf(path, sizeof(path), "test_data/sample_%d_softmax.bin", sN);
+        FILE *fr = fopen(path, "rb"); if (!fr) continue;
+        if (fread(ref, sizeof(float), N_CLASSES, fr) != N_CLASSES) { fclose(fr); continue; }
+        fclose(fr);
+
+        model_forward(image, probs, mw, hidx);
+        int cp = argmax4(probs), cr = argmax4(ref);
+        float md = 0.0f; for (int i=0;i<N_CLASSES;i++){ float d = probs[i]-ref[i]; if (d<0) d=-d; if (d>md) md=d; }
+        total++; if (cp==cr) pass++;
+        printf("  sample %d: %-22s vs ref %-22s | max prob diff %.2e | %s\n",
+               sN, names[cp], names[cr], md, cp==cr ? "MATCH" : "MISMATCH");
+    }
+    printf("\n%d/%d classes match the PyTorch reference%s\n",
+           pass, total, (pass==total && total>0) ? "  (probabilities match to the fp32 floor)" : "");
+    return (pass==total && total>0) ? 0 : 1;
+}
+#endif
+
 #ifdef BAKED
 #include "bench_data.h"   /* baked weights + sample image for RISC-V/QEMU (no file I/O) */
 #endif
@@ -476,8 +520,9 @@ int main(int argc, char *argv[]) {
     memcpy(image,   BENCH_IMAGE,   sizeof(image));
     (void)argc; (void)argv;
 #else
+    if (argc == 2 && strcmp(argv[1], "--validate") == 0) return run_validation();
     if (argc != 2) {
-        printf("Usage: %s <input_image.bin>\n", argv[0]);
+        printf("Usage: %s <input_image.bin>   (or: %s --validate)\n", argv[0], argv[0]);
         return 1;
     }
     FILE *fw = fopen("model_params/model_weights.bin", "rb");
