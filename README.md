@@ -113,6 +113,21 @@ Validating against PyTorch reference (test_data/):
 The `max prob diff ~1e-5` is the fp32 precision floor of the from-scratch polynomial math;
 the **classification is identical to PyTorch** on every sample.
 
+### Try all four classes
+
+`test_data/` also has one synthetic input per class (random inputs chosen to exercise
+each output), so you can watch the classifier hit every label:
+
+```bash
+for c in round inbetween cigar edgeon; do
+  printf "%-10s -> " "$c"; ./galaxy_app test_data/variety_$c.bin | sed -n 's/^Prediction: //p'
+done
+```
+
+Expected: Round Elliptical, In-between Elliptical, Cigar-shaped Elliptical, Edge-on Disk.
+(These are synthetic — noise inputs, no PyTorch reference — purely to demonstrate all four
+outputs; the numbered `sample_N` files are the real PyTorch-validated cases.)
+
 ## 5. Weight format (`model_params/model_weights.bin`)
 
 A single flat little-endian blob, read in this order (see `model_forward` in
