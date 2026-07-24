@@ -68,8 +68,9 @@ The vectorized (RVV 1.0) kernels and the exact `instret` counts require a RISC-V
 toolchain and a `VLEN = 256` simulator:
 
 ```bash
-# build with the vector extension + hardware float
-make CC=riscv32-unknown-elf-gcc CFLAGS="-O2 -march=rv32gcv -mabi=ilp32f"
+# your toolchain's DEFAULT arch already includes the vector extension + hardware float,
+# so do NOT force -march (rv32gcv has no multilib on the standard riscv32-unknown-elf toolchain):
+make CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
 
 # run under QEMU at VLEN=256 (matches the VeeR config; the default 128 is WRONG here)
 qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./galaxy_app test_data/sample_0_img.bin

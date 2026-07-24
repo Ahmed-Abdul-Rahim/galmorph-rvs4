@@ -1,6 +1,6 @@
 # Single-file optimized S4D galaxy classifier.
 #   Host (x86, quick check):   make
-#   RISC-V + vector kernels:   make CC=riscv32-unknown-elf-gcc CFLAGS="-O2 -march=rv32gcv -mabi=ilp32f"
+#   RISC-V + vector kernels:   make CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
 CC     ?= gcc
 CFLAGS ?= -O2 -Wall
 
