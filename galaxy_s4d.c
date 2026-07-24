@@ -460,15 +460,26 @@ void model_forward(
     #undef TICK
 }
 
+#ifdef BAKED
+#include "bench_data.h"   /* baked weights + sample image for RISC-V/QEMU (no file I/O) */
+#endif
+
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <input_image.bin>\n", argv[0]);
-        return 1;
-    }
     static float weights[WEIGHTS_SIZE_FLOATS];
     static float image[IN_CHANNELS][IMG_SIZE][IMG_SIZE];
     static float probs[N_CLASSES];
 
+#ifdef BAKED
+    /* Weights + sample-0 image are compiled in (QEMU's newlib can't fopen files).
+     * Build with -DBAKED for the RISC-V instruction-count benchmark. */
+    memcpy(weights, BENCH_WEIGHTS, sizeof(weights));
+    memcpy(image,   BENCH_IMAGE,   sizeof(image));
+    (void)argc; (void)argv;
+#else
+    if (argc != 2) {
+        printf("Usage: %s <input_image.bin>\n", argv[0]);
+        return 1;
+    }
     FILE *fw = fopen("model_params/model_weights.bin", "rb");
     if (!fw) { fprintf(stderr, "Error: model_params/model_weights.bin not found (run from repo root)\n"); return 1; }
     if (fread(weights, sizeof(float), WEIGHTS_SIZE_FLOATS, fw) != WEIGHTS_SIZE_FLOATS)
@@ -480,6 +491,7 @@ int main(int argc, char *argv[]) {
     if (fread(image, sizeof(float), IN_CHANNELS*IMG_SIZE*IMG_SIZE, fi) == 0)
         fprintf(stderr, "Warning: failed to read image\n");
     fclose(fi);
+#endif
 
     const int   *hilbert_indices = (const int   *)weights;
     const float *model_weights   = (const float *)weights;
@@ -502,5 +514,6 @@ int main(int argc, char *argv[]) {
     printf("\nPer-layer dynamic instruction counts\n");
     for (int i = 0; i < 9; i++) { printf("  %-12s : %12llu\n", LAYER_NAMES[i], (unsigned long long)g_layer_insts[i]); total += g_layer_insts[i]; }
     printf("  %-12s : %12llu\n", "TOTAL", (unsigned long long)total);
+    fflush(stdout);
     return 0;
 }

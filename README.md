@@ -33,51 +33,55 @@ docs/                   one markdown per optimization, fully explained
 
 ---
 
-## 2. Quick start (host, ~5 seconds)
+## 2. Quick start — host (x86), ~5 seconds
 
-Run from the **repository root** (the program looks for `model_params/model_weights.bin`):
+Run from the **repository root** (it reads `model_params/model_weights.bin`):
 
 ```bash
 make
-./galaxy_app test_data/sample_0_img.bin
+./galaxy_app test_data/sample_0_img.bin      # -> Prediction: Round Elliptical (88.17%)
 ```
 
-Expected:
+It prints the prediction and a per-layer instruction-count table. Those host counts use
+the Linux `perf` counter, which is off by default — enable it once, then you can see the
+breakdown across optimization levels:
 
+```bash
+sudo sysctl -w kernel.perf_event_paranoid=-1      # once per boot
+for O in 0 2 3; do
+  gcc -O$O -o galaxy_app galaxy_s4d.c
+  echo "===== -O$O ====="; ./galaxy_app test_data/sample_0_img.bin | sed -n '/Per-layer/,$p'
+done
 ```
-Class probabilities
-  0  Round Elliptical         :  88.17%
-  ...
-Prediction: Round Elliptical
 
-Per-layer dynamic instruction counts
-  hilbert      :  ...
-  ...
-```
-
-> On x86 the per-layer counts need the Linux `perf` counter. If they read `0`, either
-> run `sudo ./galaxy_app ...` or `sudo sysctl -w kernel.perf_event_paranoid=-1`. The
-> **classification always works** regardless; only the counter needs the permission.
-> The *real* instruction numbers come from the RISC-V build below.
+These are **real x86** retired-instruction counts — good for before/after on this
+machine, but not the RISC-V figures (different ISA). For those, see §3.
 
 ---
 
-## 3. Build & measure on RISC-V (the real numbers)
+## 3. Real RISC-V instruction counts (the study's numbers)
 
-The vectorized (RVV 1.0) kernels and the exact `instret` counts require a RISC-V
-toolchain and a `VLEN = 256` simulator:
+`qemu-riscv32`'s newlib C library **cannot open files**, so the RISC-V measurement uses a
+**baked** build (`-DBAKED`) with the weights + a sample image compiled in via
+`bench_data.h`. Your toolchain's default arch already includes the vector extension, so
+do **not** pass `-march` (`rv32gcv` has no multilib on the standard toolchain):
 
 ```bash
-# your toolchain's DEFAULT arch already includes the vector extension + hardware float,
-# so do NOT force -march (rv32gcv has no multilib on the standard riscv32-unknown-elf toolchain):
-make CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
-
-# run under QEMU at VLEN=256 (matches the VeeR config; the default 128 is WRONG here)
-qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./galaxy_app test_data/sample_0_img.bin
+for O in 0 2 3; do
+  make clean >/dev/null
+  make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O$O"
+  echo "===== -O$O ====="
+  qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./galaxy_bench | sed -n '/Per-layer/,$p'
+done
 ```
 
-The per-layer instruction counts now come straight from the `instret` CSR — exact and
-inlining-proof. See [`docs/08-measurement-methodology.md`](docs/08-measurement-methodology.md).
+`galaxy_bench` takes **no arguments** (the image is baked in). The counts come straight
+from the `instret` CSR — exact and inlining-proof — and the headline figure is the
+**least of the three** builds (~**1.82 B** total). Run at `vlen=256` (matches the VeeR
+config); the QEMU default of 128 would process half of each 32-lane group and be wrong.
+
+> The file-loading `galaxy_app` is for the host only — it will *not* run under QEMU
+> because of the newlib file-I/O limitation above. That is why the benchmark is baked.
 
 ---
 
