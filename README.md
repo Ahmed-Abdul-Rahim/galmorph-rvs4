@@ -40,7 +40,7 @@ weights.h  image.h      baked model weights + sample image (for the RISC-V bench
 Makefile                one-command build (host or RISC-V)
 models/
   model_weights.bin     the flat weight blob the program loads (21124 floats)
-  galaxys4-30609.pth    the trained PyTorch checkpoint (reference / to regenerate weights)
+  galaxy_s4d.pth    the trained PyTorch checkpoint (reference / to regenerate weights)
 test_data/              per-sample inputs + PyTorch reference outputs (for validation)
 docs/                   one markdown per optimization, fully explained
 ```
@@ -174,7 +174,7 @@ fc.bias                4       float32
 ```
 
 Total = 21124 float-sized words. To regenerate it (and the reference tensors) from the
-checkpoint `models/galaxys4-30609.pth`, use the export script on the Python branch
+checkpoint `models/galaxy_s4d.pth`, use the export script on the Python branch
 of this project.
 
 ---

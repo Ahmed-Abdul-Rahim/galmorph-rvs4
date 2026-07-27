@@ -7,7 +7,7 @@ Run from the repository ROOT:
 
 Produces (deterministically):
   models/model_weights.bin        - flat weight blob the C program loads (kept in sync
-                                     with models/galaxys4-*.pth)
+                                     with models/*.pth)
   test_data/sample_{0..4}_*.bin   - input images + per-layer + softmax PyTorch references
   test_data/variety_{class}.bin   - one synthetic input per output class (demo)
 
@@ -29,9 +29,9 @@ def dump(t, path):
     np.asarray(t.detach().cpu().numpy(), dtype=np.float32).flatten().tofile(path)
 
 def find_ckpt():
-    c = sorted(glob.glob(os.path.join(MODELS, "galaxys4*.pth")))
+    c = sorted(glob.glob(os.path.join(MODELS, "*.pth")))
     if not c:
-        sys.exit("ERROR: no models/galaxys4*.pth checkpoint found")
+        sys.exit("ERROR: no models/*.pth checkpoint found")
     return c[-1]
 
 def main():
