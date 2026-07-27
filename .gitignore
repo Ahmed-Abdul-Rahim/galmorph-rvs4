@@ -16,3 +16,17 @@ __pycache__/
 .DS_Store
 
 galaxy_bench
+
+# regenerated per-layer reference tensors (produced by scripts/generate_data.py, not committed)
+test_data/out_*.bin
+test_data/input_image.bin
+test_data/s4_1_*.bin
+test_data/sample_*_hilbert.bin
+test_data/sample_*_uproject.bin
+test_data/sample_*_gelu_1.bin
+test_data/sample_*_gelu_2.bin
+test_data/sample_*_s4_1.bin
+test_data/sample_*_s4_2.bin
+test_data/sample_*_takelast.bin
+test_data/sample_*_fc.bin
+test_data/sample_*_ref.bin

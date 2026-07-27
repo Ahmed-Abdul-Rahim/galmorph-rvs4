@@ -151,8 +151,9 @@ the trained checkpoint. Needs `torch`, `numpy`, `einops`:
 python scripts/generate_data.py     # run from the repo root
 ```
 
-It re-syncs `models/model_weights.bin` from `models/galaxys4-*.pth` and regenerates the
-sample references (seeds 0-4) and the `variety_*` inputs. The PyTorch model lives in
+It re-syncs `models/model_weights.bin`, regenerates the sample inputs + softmax references
+(seeds 0-4) and the `variety_*` inputs, and (git-ignored) the full per-layer reference
+tensors for deeper analysis. The PyTorch model lives in
 `scripts/model/`.
 
 ---
