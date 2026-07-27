@@ -11,9 +11,9 @@ all: galaxy_app
 galaxy_app: galaxy_s4d.c profile.h
 	$(CC) $(CFLAGS) -o galaxy_app galaxy_s4d.c
 
-# Baked build: weights + sample-0 image compiled in (bench_data.h), so it runs under
+# Baked build: weights (weights.h) + sample-0 image (image.h) compiled in, so it runs under
 # qemu-riscv32 -- whose newlib libc cannot fopen files -- and reports real instret counts.
-bench: galaxy_s4d.c bench_data.h profile.h
+bench: galaxy_s4d.c weights.h image.h profile.h
 	$(CC) $(CFLAGS) -DBAKED -o galaxy_bench galaxy_s4d.c
 
 clean:

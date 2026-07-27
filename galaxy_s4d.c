@@ -468,8 +468,8 @@ static int argmax4(const float *p){ int m=0; for(int i=1;i<N_CLASSES;i++) if(p[i
 
 static int run_validation(void) {
     static float weights[WEIGHTS_SIZE_FLOATS];
-    FILE *fw = fopen("model_params/model_weights.bin", "rb");
-    if (!fw) { fprintf(stderr, "Error: run from the repo root (model_params/model_weights.bin not found)\n"); return 1; }
+    FILE *fw = fopen("models/model_weights.bin", "rb");
+    if (!fw) { fprintf(stderr, "Error: run from the repo root (models/model_weights.bin not found)\n"); return 1; }
     if (fread(weights, sizeof(float), WEIGHTS_SIZE_FLOATS, fw) != WEIGHTS_SIZE_FLOATS)
         fprintf(stderr, "Warning: unexpected weight file size\n");
     fclose(fw);
@@ -505,7 +505,8 @@ static int run_validation(void) {
 #endif
 
 #ifdef BAKED
-#include "bench_data.h"   /* baked weights + sample image for RISC-V/QEMU (no file I/O) */
+#include "weights.h"   /* baked model weights (RISC-V/QEMU: no file I/O) */
+#include "image.h"     /* baked sample-0 image  (RISC-V/QEMU: no file I/O) */
 #endif
 
 int main(int argc, char *argv[]) {
@@ -516,8 +517,8 @@ int main(int argc, char *argv[]) {
 #ifdef BAKED
     /* Weights + sample-0 image are compiled in (QEMU's newlib can't fopen files).
      * Build with -DBAKED for the RISC-V instruction-count benchmark. */
-    memcpy(weights, BENCH_WEIGHTS, sizeof(weights));
-    memcpy(image,   BENCH_IMAGE,   sizeof(image));
+    memcpy(weights, WEIGHTS_BLOB, sizeof(weights));
+    memcpy(image,   SAMPLE_IMAGE,  sizeof(image));
     (void)argc; (void)argv;
 #else
     if (argc == 2 && strcmp(argv[1], "--validate") == 0) return run_validation();
@@ -525,8 +526,8 @@ int main(int argc, char *argv[]) {
         printf("Usage: %s <input_image.bin>   (or: %s --validate)\n", argv[0], argv[0]);
         return 1;
     }
-    FILE *fw = fopen("model_params/model_weights.bin", "rb");
-    if (!fw) { fprintf(stderr, "Error: model_params/model_weights.bin not found (run from repo root)\n"); return 1; }
+    FILE *fw = fopen("models/model_weights.bin", "rb");
+    if (!fw) { fprintf(stderr, "Error: models/model_weights.bin not found (run from repo root)\n"); return 1; }
     if (fread(weights, sizeof(float), WEIGHTS_SIZE_FLOATS, fw) != WEIGHTS_SIZE_FLOATS)
         fprintf(stderr, "Warning: unexpected weight file size\n");
     fclose(fw);

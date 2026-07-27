@@ -37,7 +37,7 @@ All commands below are run from this directory (the repo root).
 galaxy_s4d.c            THE implementation — math + all layers + forward pass + main
 profile.h               per-layer instruction counter (RISC-V instret CSR, or x86 perf)
 Makefile                one-command build (host or RISC-V)
-model_params/
+models/
   model_weights.bin     the flat weight blob the program loads (21124 floats)
   galaxys4-30609.pth    the trained PyTorch checkpoint (reference / to regenerate weights)
 test_data/              per-sample inputs + PyTorch reference outputs (for validation)
@@ -48,7 +48,7 @@ docs/                   one markdown per optimization, fully explained
 
 ## 2. Quick start — host (x86), ~5 seconds
 
-Run from the **repository root** (it reads `model_params/model_weights.bin`):
+Run from the **repository root** (it reads `models/model_weights.bin`):
 
 ```bash
 make
@@ -78,7 +78,7 @@ RISC-V numbers (§3) are the ones the study reports.
 
 `qemu-riscv32`'s newlib C library **cannot open files**, so the RISC-V measurement uses a
 **baked** build (`-DBAKED`) with the weights + a sample image compiled in via
-`bench_data.h`. Your toolchain's default arch already includes the vector extension, so
+`weights.h` + `image.h`. Your toolchain's default arch already includes the vector extension, so
 do **not** pass `-march` (`rv32gcv` has no multilib on the standard toolchain):
 
 ```bash
@@ -141,7 +141,7 @@ Expected: Round Elliptical, In-between Elliptical, Cigar-shaped Elliptical, Edge
 (These are synthetic — noise inputs, no PyTorch reference — purely to demonstrate all four
 outputs; the numbered `sample_N` files are the real PyTorch-validated cases.)
 
-## 5. Weight format (`model_params/model_weights.bin`)
+## 5. Weight format (`models/model_weights.bin`)
 
 A single flat little-endian blob, read in this order (see `model_forward` in
 `galaxy_s4d.c`):
@@ -157,7 +157,7 @@ fc.bias                4       float32
 ```
 
 Total = 21124 float-sized words. To regenerate it (and the reference tensors) from the
-checkpoint `model_params/galaxys4-30609.pth`, use the export script on the Python branch
+checkpoint `models/galaxys4-30609.pth`, use the export script on the Python branch
 of this project.
 
 ---
