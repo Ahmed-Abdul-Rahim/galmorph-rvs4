@@ -36,6 +36,7 @@ All commands below are run from this directory (the repo root).
 ```
 galaxy_s4d.c            THE implementation — math + all layers + forward pass + main
 profile.h               per-layer instruction counter (RISC-V instret CSR, or x86 perf)
+weights.h  image.h      baked model weights + sample image (for the RISC-V benchmark build)
 Makefile                one-command build (host or RISC-V)
 models/
   model_weights.bin     the flat weight blob the program loads (21124 floats)
