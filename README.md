@@ -142,6 +142,21 @@ Expected: Round Elliptical, In-between Elliptical, Cigar-shaped Elliptical, Edge
 (These are synthetic — noise inputs, no PyTorch reference — purely to demonstrate all four
 outputs; the numbered `sample_N` files are the real PyTorch-validated cases.)
 
+## 4b. Regenerating the data (optional)
+
+The `.bin` files under `test_data/` and `models/model_weights.bin` are reproducible from
+the trained checkpoint. Needs `torch`, `numpy`, `einops`:
+
+```bash
+python scripts/generate_data.py     # run from the repo root
+```
+
+It re-syncs `models/model_weights.bin` from `models/galaxys4-*.pth` and regenerates the
+sample references (seeds 0-4) and the `variety_*` inputs. The PyTorch model lives in
+`scripts/model/`.
+
+---
+
 ## 5. Weight format (`models/model_weights.bin`)
 
 A single flat little-endian blob, read in this order (see `model_forward` in
