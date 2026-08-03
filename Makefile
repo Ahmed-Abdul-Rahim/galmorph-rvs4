@@ -1,22 +1,28 @@
 # Single-file optimized S4D galaxy classifier.
 #   Host (x86, quick check):        make
-#   Host per-layer counts:          enable perf (see README), then run galaxy_app
+#   Host per-layer counts:          enable perf (see README), then run build/main
 #   RISC-V real instret counts:     make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
 #                                    (default arch already has the vector ext; do NOT pass -march=rv32gcv)
-CC     ?= gcc
-CFLAGS ?= -O2 -Wall
+CC       ?= gcc
+CFLAGS   ?= -O2 -Wall
+BUILDDIR := build
 
-all: galaxy_app
+all: $(BUILDDIR)/main
 
-galaxy_app: galaxy_s4d.c profile.h
-	$(CC) $(CFLAGS) -o galaxy_app galaxy_s4d.c
+$(BUILDDIR)/main: main.c profile.h | $(BUILDDIR)
+	$(CC) $(CFLAGS) -o $@ main.c
 
 # Baked build: weights (weights.h) + sample-0 image (image.h) compiled in, so it runs under
 # qemu-riscv32 -- whose newlib libc cannot fopen files -- and reports real instret counts.
-bench: galaxy_s4d.c weights.h image.h profile.h
-	$(CC) $(CFLAGS) -DBAKED -o galaxy_bench galaxy_s4d.c
+bench: $(BUILDDIR)/bench
+
+$(BUILDDIR)/bench: main.c weights.h image.h profile.h | $(BUILDDIR)
+	$(CC) $(CFLAGS) -DBAKED -o $@ main.c
+
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
 
 clean:
-	rm -f galaxy_app galaxy_bench *.o
+	rm -rf $(BUILDDIR)
 
 .PHONY: all bench clean

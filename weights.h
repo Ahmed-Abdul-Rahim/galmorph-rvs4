@@ -1,4 +1,4 @@
-/* Auto-generated from model_weights.bin. */
+/* Auto-generated from weights.bin. */
 #ifndef WEIGHTS_BLOB_H
 #define WEIGHTS_BLOB_H
 

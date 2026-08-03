@@ -11,7 +11,7 @@ translation units (no LTO), so every element paid a full function-call/return.
 
 Fix: put the math functions in the **same translation unit** as their callers. Now
 `-O2` inlines `my_tanh`/`my_exp` into the GELU loop and the discretization, removing the
-per-element call overhead. This is why `galaxy_s4d.c` is a **single file** — it is not
+per-element call overhead. This is why `main.c` is a **single file** — it is not
 just tidiness, it is the optimization.
 
 ## #14 — Vectorized GELU (1.82 B, best)

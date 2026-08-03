@@ -20,7 +20,7 @@ On a non-RISC-V host, `profile.h` falls back to the Linux `perf` interface
 
 Everything is measured at **`VLEN = 256`**:
 ```
-qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32  ./galaxy_app <image.bin>
+qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32  ./build/bench
 ```
 This matches the VeeR config (`bytes_per_vec = 32`). Running at QEMU's 128-bit default
 would silently process half of each 32-lane `m4` group and give wrong results.

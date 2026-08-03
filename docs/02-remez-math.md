@@ -28,7 +28,7 @@ x = n·ln2 + r,   r ∈ [-ln2/2, ln2/2]   =>   e^x = 2^n · e^r
 `my_tanh(x) = 1 − 2/(e^{2x}+1)` reuses `my_exp`. `sin/cos` use the same
 reduce-then-minimax-polynomial structure.
 
-The exact coefficients live in `galaxy_s4d.c` (`my_exp`, `my_sin`, `my_cos`).
+The exact coefficients live in `main.c` (`my_exp`, `my_sin`, `my_cos`).
 
 ## Effect
 

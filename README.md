@@ -1,207 +1,190 @@
-# S4D Galaxy Classifier — Optimized C (single file)
+# GalMorph - A S4D-Based Galaxy Classifier Optimized for RVV Inference
 
-A from-scratch C implementation of a diagonal Structured-State-Space (**S4D**)
-galaxy-morphology classifier, optimized down to **1.82 billion** dynamic instructions —
-**50× fewer** than the original convolution baseline — with **no libm** in the forward
-pass and **identical predictions**.
+A from-scratch C implementation of a diagonal Structured-State-Space (S4D)
+galaxy-morphology classifier, optimized for inference on RISC-V Vector (RVV) 
+processors
 
-It classifies a 64×64 grayscale image into one of four classes
-(**Round Elliptical, In-between Elliptical, Cigar-shaped Elliptical, Edge-on Disk**):
+## Table of Contents
 
-```
-image → Hilbert scan → linear up-projection → S4D → GELU → S4D → GELU
-      → take-last-timestep → linear head → softmax
-```
-
-Everything is in **one file, `galaxy_s4d.c`** — math, layers, forward pass, and `main`.
-The full optimization story is in [`docs/`](docs/00-overview.md).
+1. [Introduction](#1-introduction)
+2. [Model Architecture](#2-model-architecture)
+3. [Repository Layout](#3-repository-layout)
+4. [Dependencies](#4-dependencies)
+5. [Usage](#5-usage)
+6. [Benchmarking](#6-benchmarking)
+7. [License](#7-license)
+8. [References](#8-references)
 
 ---
 
-## 0. Get this branch
+## 1. Introduction
+
+Spacecraft like JWST and Hubble capture astronomical imaging data faster
+than it can ever be transmitted back: around 57 GB per day, with only hours
+of downlink time. To be useful, a satellite needs to classify what it is
+seeing, filter out the noise, and prioritize the observations worth
+sending, all on-board, before anything reaches the ground.
+
+The hardware doing that work is power-constrained and radiation-hardened.
+There is no room for bloated runtimes. CNN inference scales with image
+resolution and requires holding intermediate feature maps in memory, a
+costly assumption on a space processor. Structured State Space models
+process the same data as a sequence, with a fixed-size state that does not
+grow with input length.
+
+This repository implements S4D in C: a from-scratch forward pass with no
+runtime dependencies beyond libc, targeting RISC-V Vector (RVV) extensions.
+As a concrete workload, it classifies a 64x64 grayscale image into one of
+four galaxy morphologies - Round Elliptical, In-between Elliptical,
+Cigar-shaped Elliptical, Edge-on Disk - using GalaxyMNIST (see
+[References](#8-references)) as a stand-in for the kind of on-board
+imaging classification described above.
+
+Everything needed to run it - math, layers, forward pass, and `main` -
+lives in a single file: [`main.c`](main.c). The model is trained in
+PyTorch (see the [`pymodel/`](pymodel/) package); this repository contains
+the trained checkpoint and the from-scratch C reimplementation of its
+forward pass, not the training pipeline.
+
+## 2. Model Architecture
+
+Galaxy classification is treated as a sequence modeling problem.
+
+**Input processing:**
+- Input: 64x64 RGB or grayscale images, $(B, C, 64, 64)$ where $C = 3$ for RGB or $C = 1$ for grayscale
+- Hilbert scan reorders this into a sequence, $(B, 4096, C)$
+- A linear input projection maps the $C$-dimensional pixels to the model dimension, $(B, 4096, d_{model})$
+
+**S4D sequence processing:** two S4D layers are stacked, each with:
+- State dimension $d_{state} = 64$ (memory capacity)
+- Model dimension $d_{model} = 64$ (output feature dimension)
+- GELU activation after each layer
+
+**Classification head:**
+- The final timestep of the sequence, $(B, 64)$, is taken as the summary representation
+- A linear layer maps this to 4 class logits, $(B, 4)$
+- Softmax converts the logits to class probabilities
+
+**Forward pass:**
+
+$$X_{img} \in \mathbb{R}^{C \times 64 \times 64} \xrightarrow{\text{Hilbert}} X_{seq} \in \mathbb{R}^{4096 \times C}$$
+
+$$X_{seq} \xrightarrow{\text{Linear}} X_{proj} \in \mathbb{R}^{4096 \times 64}$$
+
+$$X_{proj} \xrightarrow{\text{S4D}_1} Z_1 \in \mathbb{R}^{4096 \times 64} \xrightarrow{\text{GELU}} A_1$$
+
+$$A_1 \xrightarrow{\text{S4D}_2} Z_2 \in \mathbb{R}^{4096 \times 64} \xrightarrow{\text{GELU}} A_2$$
+
+$$A_2[:, -1, :] \in \mathbb{R}^{64} \xrightarrow{\text{Linear}} Y_{logits} \in \mathbb{R}^{4} \xrightarrow{\text{Softmax}} Y_{probs}$$
+
+## 3. Repository Layout
+
+```
+.
+├── pymodel                 # PyTorch model definition (exposes GalaxyClassifierS4D)
+│   ├── __init__.py
+│   ├── gclassifier.py
+│   ├── hilbert.py
+│   ├── s4d.py
+│   └── tlts.py
+├── scripts
+│   └── generate_data.py    # regenerates weights.bin and the test data from model.pth
+├── image.h                 # baked sample image, for the RISC-V benchmark build
+├── main.c                  # the implementation: math, layers, forward pass, and main
+├── Makefile                # builds the host binary or the baked RISC-V benchmark
+├── model.pth               # the trained PyTorch checkpoint
+├── profile.h               # per-layer instruction counter (RISC-V instret CSR, or x86 perf)
+├── README.md
+├── requirements.txt        # Python dependencies for scripts/generate_data.py
+└── weights.h               # baked model weights, for the RISC-V benchmark build
+```
+
+## 4. Dependencies
+
+- C compiler (`gcc`/`clang`)
+- `riscv32-unknown-elf-gcc`
+- `qemu-riscv32` (or VeeR-iSS)
+- Python 3 + `requirements.txt`
+- Linux `perf`
+
+## 5. Usage
+
+### Setup
+
+`weights.bin` and `test_data/` are not committed to the repository; they
+are generated from the trained checkpoint (`model.pth`):
 
 ```bash
-git clone https://github.com/ahsan-c0ding/S4-Enhancement-Exploration.git
-cd S4-Enhancement-Exploration
-git switch c        # use `switch`, not `checkout` -- the default branch has a `c/`
-                    # folder, which makes `git checkout c` ambiguous
+git clone https://github.com/Ahmed-Abdul-Rahim/galmorph-rvs4.git
+cd galmorph-rvs4
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python scripts/generate_data.py
 ```
 
-All commands below are run from this directory (the repo root).
-
----
-
-## 1. What's in this branch
-
-```
-galaxy_s4d.c            THE implementation — math + all layers + forward pass + main
-profile.h               per-layer instruction counter (RISC-V instret CSR, or x86 perf)
-weights.h  image.h      baked model weights + sample image (for the RISC-V benchmark build)
-Makefile                one-command build (host or RISC-V)
-models/
-  model_weights.bin     the flat weight blob the program loads (21124 floats)
-  galaxy_s4d.pth    the trained PyTorch checkpoint (reference / to regenerate weights)
-test_data/              per-sample inputs + PyTorch reference outputs (for validation)
-docs/                   one markdown per optimization, fully explained
-```
-
----
-
-## 2. Quick start — host (x86), ~5 seconds
-
-Run from the **repository root** (it reads `models/model_weights.bin`):
+### Build and validate (host)
 
 ```bash
 make
-./galaxy_app test_data/sample_0_img.bin      # -> Prediction: Round Elliptical (88.17%)
+./build/main test_data/sample_0_img.bin
+./build/main --validate
 ```
 
-It prints the prediction and a per-layer instruction-count table. Those host counts use
-the Linux `perf` counter, which is off by default — enable it once, then you can see the
-breakdown across optimization levels:
+### Run on RISC-V
+
+`qemu-riscv32`'s newlib C library cannot open files, so the RISC-V build
+bakes the weights and a sample image in via `weights.h` + `image.h`.
+`build/bench` takes no arguments; the image is baked in.
+
+```bash
+make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
+qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./build/bench
+```
+
+## 6. Benchmarking
+
+Per-layer instruction counts are printed automatically by `main.c` via
+`profile.h`. On host, they come from the Linux `perf` counter:
 
 ```bash
 sudo sysctl -w kernel.perf_event_paranoid=-1      # once per boot
-for O in 0 2 3; do
-  gcc -O$O -o galaxy_app galaxy_s4d.c
-  echo "===== -O$O ====="; ./galaxy_app test_data/sample_0_img.bin | sed -n '/Per-layer/,$p'
-done
+mkdir -p build
+gcc -O2 -o build/main main.c
+./build/main test_data/sample_0_img.bin | sed -n '/Per-layer/,$p'
 ```
 
-These are **real x86** retired-instruction counts. Note: inside a VM/WSL the host PMU
-is often not exposed, so these may read `0` even with the sysctl set — in that case use
-the RISC-V measurement in §3, which reads a real counter inside QEMU. Either way, the
-RISC-V numbers (§3) are the ones the study reports.
-
----
-
-## 3. Real RISC-V instruction counts (the study's numbers)
-
-`qemu-riscv32`'s newlib C library **cannot open files**, so the RISC-V measurement uses a
-**baked** build (`-DBAKED`) with the weights + a sample image compiled in via
-`weights.h` + `image.h`. Your toolchain's default arch already includes the vector extension, so
-do **not** pass `-march` (`rv32gcv` has no multilib on the standard toolchain):
+If the host PMU is not exposed, these read `0`; use the RISC-V path
+instead, which reads a real `instret` counter inside QEMU:
 
 ```bash
-for O in 0 2 3; do
-  make clean >/dev/null
-  make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O$O"
-  echo "===== -O$O ====="
-  qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./galaxy_bench | sed -n '/Per-layer/,$p'
-done
+make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
+qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./build/bench | sed -n '/Per-layer/,$p'
 ```
 
-`galaxy_bench` takes **no arguments** (the image is baked in). The counts come straight
-from the `instret` CSR — exact and inlining-proof — and the headline figure is the
-**least of the three** builds (~**1.82 B** total). Run at `vlen=256` (matches the VeeR
-config); the QEMU default of 128 would process half of each 32-lane group and be wrong.
+`build/main` cannot run under QEMU (the newlib file-I/O limitation above),
+which is why the RISC-V benchmark is a separate baked build (`build/bench`).
 
-> The file-loading `galaxy_app` is for the host only — it will *not* run under QEMU
-> because of the newlib file-I/O limitation above. That is why the benchmark is baked.
+## 7. License
 
----
+This project is licensed under the MIT License (license file to be added).
 
-## 4. Validate correctness — one command, no python
+## 8. References
 
-The program has a built-in validation mode: it runs samples 0-4 and compares its softmax
-to the PyTorch reference (`test_data/sample_N_softmax.bin`).
-
-```bash
-make
-./galaxy_app --validate
-```
-
-Expected:
-
-```
-Validating against PyTorch reference (test_data/):
-  sample 0: Round Elliptical       vs ref Round Elliptical       | max prob diff 2.62e-05 | MATCH
-  sample 1: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 9.34e-05 | MATCH
-  sample 2: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 1.06e-09 | MATCH
-  sample 3: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 2.33e-06 | MATCH
-  sample 4: Edge-on Disk           vs ref Edge-on Disk           | max prob diff 2.38e-07 | MATCH
-
-5/5 classes match the PyTorch reference  (probabilities match to the fp32 floor)
-```
-
-The `max prob diff ~1e-5` is the fp32 precision floor of the from-scratch polynomial math;
-the **classification is identical to PyTorch** on every sample.
-
-### Try all four classes
-
-`test_data/` also has one synthetic input per class (random inputs chosen to exercise
-each output), so you can watch the classifier hit every label:
-
-```bash
-for c in round inbetween cigar edgeon; do
-  printf "%-10s -> " "$c"; ./galaxy_app test_data/variety_$c.bin | sed -n 's/^Prediction: //p'
-done
-```
-
-Expected: Round Elliptical, In-between Elliptical, Cigar-shaped Elliptical, Edge-on Disk.
-(These are synthetic — noise inputs, no PyTorch reference — purely to demonstrate all four
-outputs; the numbered `sample_N` files are the real PyTorch-validated cases.)
-
-## 4b. Regenerating the data (optional)
-
-The `.bin` files under `test_data/` and `models/model_weights.bin` are reproducible from
-the trained checkpoint. Needs `torch`, `numpy`, `einops`:
-
-```bash
-python scripts/generate_data.py     # run from the repo root
-```
-
-It re-syncs `models/model_weights.bin`, regenerates the sample inputs + softmax references
-(seeds 0-4) and the `variety_*` inputs, and (git-ignored) the full per-layer reference
-tensors for deeper analysis. The PyTorch model lives in
-`scripts/model/`.
-
----
-
-## 5. Weight format (`models/model_weights.bin`)
-
-A single flat little-endian blob, read in this order (see `model_forward` in
-`galaxy_s4d.c`):
-
-```
-hilbert_scan.indices   4096 × int32
-uproject.weight        64 × 1  float32
-uproject.bias          64      float32
-s4_1: log_dt(64), log_A_real(64×32), A_imag(64×32), C(64×32×2 interleaved re/im), D(64)
-s4_2: same shape as s4_1
-fc.weight              4 × 64  float32
-fc.bias                4       float32
-```
-
-Total = 21124 float-sized words. To regenerate it (and the reference tensors) from the
-checkpoint `models/galaxy_s4d.pth`, use the export script on the Python branch
-of this project.
-
----
-
-## 6. The optimization story
-
-| # | Change | Instructions | Doc |
-|--:|---|--:|---|
-| — | Original: O(L²) conv + Taylor math | 91.22 B | — |
-| 1 | recurrent O(L·N) scan | 6.87 B | [01](docs/01-recurrent-scan.md) |
-| 2 | Remez minimax math | 5.74 B | [02](docs/02-remez-math.md) |
-| 3–5 | scan refinements | 3.09 B | [03](docs/03-scan-refinements.md) |
-| 8 | RVV vectorized scan | 2.68 B | [04](docs/04-rvv-vectorization.md) |
-| 12 | fold B̄ into C̄ (−30%) | 1.87 B | [05](docs/05-fold-b-into-c.md) |
-| 13–14 | inline math + vectorized GELU | **1.82 B** | [06](docs/06-inline-math-and-gelu.md) |
-
-Things that were tried and **didn't** help are documented too —
-[`docs/07-negative-results.md`](docs/07-negative-results.md) — including why the
-reduction couldn't be made cheaper under QEMU.
-
----
-
-## 7. Requirements
-
-- **Host build & validation:** any C99 compiler (`gcc`/`clang`). Nothing else — the
-  `--validate` check is built in (no python/numpy). Host per-layer counts additionally
-  need Linux `perf` access (often unavailable in a VM/WSL; use the RISC-V path instead).
-- **RISC-V build:** `riscv32-unknown-elf-gcc` with `rv32gcv` / `ilp32f`, and
-  `qemu-riscv32` (or VeeR-iSS) run at **`vlen=256`**.
-- No third-party libraries; the math is all in `galaxy_s4d.c`.
+1. Gu, A., et al. (2022). *Efficiently Modeling Long Sequences with
+   Structured State Spaces.* International Conference on Learning
+   Representations (ICLR).
+2. Gu, A., et al. (2022). *On the Parameterization and Initialization of
+   Diagonal State Space Models.* Advances in Neural Information Processing
+   Systems (NeurIPS).
+3. Walmsley, M., et al. (2022). *Galaxy Zoo DECaLS: Detailed visual
+   morphology measurements from volunteers and deep learning for 314,000
+   galaxies.* Monthly Notices of the Royal Astronomical Society (MNRAS),
+   509(3), 3966-3988.
+4. Izard, A. (2022). *GalaxyMNIST: A Dataset for Galaxy Morphology
+   Classification.* Available at: [albertizard.com/mnist](https://albertizard.com/mnist/)
+5. Walmsley, M. (2022). *GalaxyMNIST Repository.* Available at:
+   [github.com/mwalmsley/galaxy_mnist](https://github.com/mwalmsley/galaxy_mnist)
+6. RISC-V International. *RISC-V Vector Extension Specification.*
+   Available at: [github.com/riscv/riscv-v-spec](https://github.com/riscv/riscv-v-spec)
+7. RISC-V International. *RISC-V in Space and Aerospace.* Available at:
+   [riscv.org/risc-v-space-and-aerospace](https://riscv.org/risc-v-space-and-aerospace/)

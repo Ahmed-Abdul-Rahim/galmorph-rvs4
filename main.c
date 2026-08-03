@@ -1,5 +1,5 @@
 /* =====================================================================
- * galaxy_s4d.c  --  Single-file, optimized S4D galaxy-morphology classifier
+ * main.c  --  Single-file, optimized S4D galaxy-morphology classifier
  * ---------------------------------------------------------------------
  * 64x64 grayscale image -> Hilbert scan -> linear up-projection ->
  * S4D -> GELU -> S4D -> GELU -> take-last -> linear head -> softmax.
@@ -397,7 +397,7 @@ void take_last_timestamp(float input[SEQ_LEN][D_MODEL], float output[D_MODEL]) {
 }
 
 /* =====================================================================
- * Forward pass. Weight layout in the flat model_weights.bin buffer:
+ * Forward pass. Weight layout in the flat weights.bin buffer:
  *   [0]      hilbert_scan.indices  (4096 int32)
  *   [..]     uproject.weight (64x1), uproject.bias (64)
  *   [..]     s4_1: log_dt(64), log_A_real(64x32), A_imag(64x32),
@@ -468,8 +468,8 @@ static int argmax4(const float *p){ int m=0; for(int i=1;i<N_CLASSES;i++) if(p[i
 
 static int run_validation(void) {
     static float weights[WEIGHTS_SIZE_FLOATS];
-    FILE *fw = fopen("models/model_weights.bin", "rb");
-    if (!fw) { fprintf(stderr, "Error: run from the repo root (models/model_weights.bin not found)\n"); return 1; }
+    FILE *fw = fopen("weights.bin", "rb");
+    if (!fw) { fprintf(stderr, "Error: run from the repo root (weights.bin not found)\n"); return 1; }
     if (fread(weights, sizeof(float), WEIGHTS_SIZE_FLOATS, fw) != WEIGHTS_SIZE_FLOATS)
         fprintf(stderr, "Warning: unexpected weight file size\n");
     fclose(fw);
@@ -526,8 +526,8 @@ int main(int argc, char *argv[]) {
         printf("Usage: %s <input_image.bin>   (or: %s --validate)\n", argv[0], argv[0]);
         return 1;
     }
-    FILE *fw = fopen("models/model_weights.bin", "rb");
-    if (!fw) { fprintf(stderr, "Error: models/model_weights.bin not found (run from repo root)\n"); return 1; }
+    FILE *fw = fopen("weights.bin", "rb");
+    if (!fw) { fprintf(stderr, "Error: weights.bin not found (run from repo root)\n"); return 1; }
     if (fread(weights, sizeof(float), WEIGHTS_SIZE_FLOATS, fw) != WEIGHTS_SIZE_FLOATS)
         fprintf(stderr, "Warning: unexpected weight file size\n");
     fclose(fw);
