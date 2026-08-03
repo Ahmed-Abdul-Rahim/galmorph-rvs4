@@ -1,183 +1,190 @@
-# S4 Galaxy Classification - Team 0x43 Repository
+# GalMorph - A S4D-Based Galaxy Classifier Optimized for RVV Inference
 
-This repository provides starter code, utilities, and infrastructure for implementing S4-based galaxy morphology classification. It includes data loaders, model interfaces, visualization tools, and a reference S4D implementation.
-  
-**Requirements:** Python 3.11+, PyTorch 2.0+, CUDA (optional)
+A from-scratch C implementation of a diagonal Structured-State-Space (S4D)
+galaxy-morphology classifier, optimized for inference on RISC-V Vector (RVV) 
+processors
 
-## Overview
+## Table of Contents
 
-This base repository contains:
-- **Data loaders** for GalaxyMNIST dataset
-- **Model scaffolding** with TODOs for implementation
-- **Reference S4D layer** (fully implemented)
-- **Utility functions** for Hilbert curves and sequence processing
-- **Interactive GUI** for model exploration
-- **Training infrastructure** with notebook and utilities
+1. [Introduction](#1-introduction)
+2. [Model Architecture](#2-model-architecture)
+3. [Repository Layout](#3-repository-layout)
+4. [Dependencies](#4-dependencies)
+5. [Usage](#5-usage)
+6. [Benchmarking](#6-benchmarking)
+7. [License](#7-license)
+8. [References](#8-references)
 
-## Repository Structure
+---
+
+## 1. Introduction
+
+Spacecraft like JWST and Hubble capture astronomical imaging data faster
+than it can ever be transmitted back: around 57 GB per day, with only hours
+of downlink time. To be useful, a satellite needs to classify what it is
+seeing, filter out the noise, and prioritize the observations worth
+sending, all on-board, before anything reaches the ground.
+
+The hardware doing that work is power-constrained and radiation-hardened.
+There is no room for bloated runtimes. CNN inference scales with image
+resolution and requires holding intermediate feature maps in memory, a
+costly assumption on a space processor. Structured State Space models
+process the same data as a sequence, with a fixed-size state that does not
+grow with input length.
+
+This repository implements S4D in C: a from-scratch forward pass with no
+runtime dependencies beyond libc, targeting RISC-V Vector (RVV) extensions.
+As a concrete workload, it classifies a 64x64 grayscale image into one of
+four galaxy morphologies - Round Elliptical, In-between Elliptical,
+Cigar-shaped Elliptical, Edge-on Disk - using GalaxyMNIST (see
+[References](#8-references)) as a stand-in for the kind of on-board
+imaging classification described above.
+
+Everything needed to run it - math, layers, forward pass, and `main` -
+lives in a single file: [`main.c`](main.c). The model is trained in
+PyTorch (see the [`pymodel/`](pymodel/) package); this repository contains
+the trained checkpoint and the from-scratch C reimplementation of its
+forward pass, not the training pipeline.
+
+## 2. Model Architecture
+
+Galaxy classification is treated as a sequence modeling problem.
+
+**Input processing:**
+- Input: 64x64 RGB or grayscale images, $(B, C, 64, 64)$ where $C = 3$ for RGB or $C = 1$ for grayscale
+- Hilbert scan reorders this into a sequence, $(B, 4096, C)$
+- A linear input projection maps the $C$-dimensional pixels to the model dimension, $(B, 4096, d_{model})$
+
+**S4D sequence processing:** two S4D layers are stacked, each with:
+- State dimension $d_{state} = 64$ (memory capacity)
+- Model dimension $d_{model} = 64$ (output feature dimension)
+- GELU activation after each layer
+
+**Classification head:**
+- The final timestep of the sequence, $(B, 64)$, is taken as the summary representation
+- A linear layer maps this to 4 class logits, $(B, 4)$
+- Softmax converts the logits to class probabilities
+
+**Forward pass:**
+
+$$X_{img} \in \mathbb{R}^{C \times 64 \times 64} \xrightarrow{\text{Hilbert}} X_{seq} \in \mathbb{R}^{4096 \times C}$$
+
+$$X_{seq} \xrightarrow{\text{Linear}} X_{proj} \in \mathbb{R}^{4096 \times 64}$$
+
+$$X_{proj} \xrightarrow{\text{S4D}_1} Z_1 \in \mathbb{R}^{4096 \times 64} \xrightarrow{\text{GELU}} A_1$$
+
+$$A_1 \xrightarrow{\text{S4D}_2} Z_2 \in \mathbb{R}^{4096 \times 64} \xrightarrow{\text{GELU}} A_2$$
+
+$$A_2[:, -1, :] \in \mathbb{R}^{64} \xrightarrow{\text{Linear}} Y_{logits} \in \mathbb{R}^{4} \xrightarrow{\text{Softmax}} Y_{probs}$$
+
+## 3. Repository Layout
 
 ```
-space-state-model/
-├── README.md # Project overview, setup instructions, and usage guide
-|
-├── requirements.txt # Python dependencies required to run the project
-│
-├── main.py # Interactive visualization tool (e.g., exploring models/outputs)
-│
-├── utils.py # Helper functions used throughout the project
-│
-├── Hilbertplot.py # Create Hilbert Plot image into /images folder
-│
-├── model/ # model implementations
-│ ├── init.py # Marks this directory as a Python package
-| |
-│ ├── gclassifier.py # Galaxy classification model (Hilbert + S4D pipeline)
-| |
-│ ├── s4d.py # S4D implementation (FFT-based convolution)
-| |
-│ ├── s4d_modified.py # Modified S4D (direct conv1d version for simplicity)
-| |
-│ ├── s4_conv.py # Convolution-based S4 implementation
-| |
-│ ├── s4_recurrent.py # Recurrent S4 implementation
-| |
-│ ├── hilbert.py # Hilbert curve mapping (2D image → 1D sequence)
-| |
-│ ├── tlts.py # TakeLastTimestep layer (extracts final sequence state)
-| |
-│ ├── interface.py # Unified interface for different S4 model variants
-| |
-│ ├── functions.py # Utility/helper functions used across models
-| |
-│ ├── verify_my_task.py # Script for verifying correctness of implementations
-| |
-│ └── gui.py # GUI components for visualization/debugging
-│
-├── export/ # Scripts for exporting and testing trained models
-│ ├── export_weights.py # Saves trained model weights
-│ │
-│ ├── generate_test_data.py # Generates test inputs for evaluation
-│ │
-│ └── run_test.py # Runs inference using exported models
-│
-├── scripts/ # Training and execution scripts
-│ ├── train.ipynb # Notebook-based training pipeline
-│ │
-│ └── train.py # Script-based training
-│
-├──  tests/ # Unit tests and validation scripts
-| ├── test_forward.py # Tests forward pass of models
-│ |
-| | test_s4_equivalence.py # Verifies recurrent vs convolution S4 equivalence
-│ |
-| └── test_s4d_fft_conv.py # Benchmarks FFT vs direct convolution in S4D
-└─
+.
+├── pymodel                 # PyTorch model definition (exposes GalaxyClassifierS4D)
+│   ├── __init__.py
+│   ├── gclassifier.py
+│   ├── hilbert.py
+│   ├── s4d.py
+│   └── tlts.py
+├── scripts
+│   └── generate_data.py    # regenerates weights.bin and the test data from model.pth
+├── image.h                 # baked sample image, for the RISC-V benchmark build
+├── main.c                  # the implementation: math, layers, forward pass, and main
+├── Makefile                # builds the host binary or the baked RISC-V benchmark
+├── model.pth               # the trained PyTorch checkpoint
+├── profile.h               # per-layer instruction counter (RISC-V instret CSR, or x86 perf)
+├── README.md
+├── requirements.txt        # Python dependencies for scripts/generate_data.py
+└── weights.h               # baked model weights, for the RISC-V benchmark build
 ```
 
-## Installation
+## 4. Dependencies
+
+- C compiler (`gcc`/`clang`)
+- `riscv32-unknown-elf-gcc`
+- `qemu-riscv32` (or VeeR-iSS)
+- Python 3 + `requirements.txt`
+- Linux `perf`
+
+## 5. Usage
+
+### Setup
+
+`weights.bin` and `test_data/` are not committed to the repository; they
+are generated from the trained checkpoint (`model.pth`):
 
 ```bash
-cd space-state-model
+git clone https://github.com/Ahmed-Abdul-Rahim/galmorph-rvs4.git
+cd galmorph-rvs4
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+python scripts/generate_data.py
 ```
 
-## Model Modules
-
-### Core Components
-
-**`model/gclassifier.py`** - Galaxy classifier architecture:
-- `GalaxyClassifierS4D` - Main model combining Hilbert scanning, S4 layers, classification head
-- Completed `forward()` method
-
-**`model/s4d.py`** - Diagonal S4 layer: 
-- Fully implemented reference implementation
-- Study for S4 architecture patterns, FFT convolution, diagonal parameterization
-
-**`model/hilbert.py`** - Hilbert curve utilities: 
-- `HilbertScan` - Converts 2D images to 1D sequences
-- Completed `_d2xy()` method
-
-**`model/tlts.py`** - Sequence pooling: 
-- `TakeLastTimestep` - Extracts final timestep for classification
-- Implemented extraction logic
-
-**`model/functions.py`** - Helper utilities
-- Matrix operations, discretization methods
-
-## Training
-
-Interactive training notebook with step-by-step explanations:
+### Build and validate (host)
 
 ```bash
-jupyter notebook train.ipynb
+make
+./build/main test_data/sample_0_img.bin
+./build/main --validate
 ```
 
-The notebook includes:
-- Data loading and preprocessing
-- Model initialization
-- Training loop with validation
-- Logging and visualization
+### Run on RISC-V
 
-## Interactive Visualization Tool
-
-Launch the interactive galaxy explorer GUI:
+`qemu-riscv32`'s newlib C library cannot open files, so the RISC-V build
+bakes the weights and a sample image in via `weights.h` + `image.h`.
+`build/bench` takes no arguments; the image is baked in.
 
 ```bash
-python main.py --python -m galaxy_s4_model.pth
+make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
+qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./build/bench
 ```
 
-Full usage:
+## 6. Benchmarking
 
-```
-usage: main.py [-h] (--python | --riscv) [--model-path MODEL_PATH] [--colored] [--data-dir DATA_DIR]
+Per-layer instruction counts are printed automatically by `main.c` via
+`profile.h`. On host, they come from the Linux `perf` counter:
 
-Interactive Galaxy Classification Visualization Tool
-
-options:
-  -h, --help            show this help message and exit
-  --python, -p          Use Python model implementation
-  --riscv               Use RISC-V model implementation
-  --model-path MODEL_PATH, -m MODEL_PATH
-                        Path to trained model file (default: galaxy_s4_model.pth)
-  --colored, -c         Use colored (RGB) images instead of grayscale (default: grayscale)
-  --data-dir DATA_DIR   Root directory for dataset (default: ./data)
-
-Examples:
-  main.py --python -m galaxy_model.pth
-  main.py -p -m galaxy_model.pth --colored
-  main.py --riscv
+```bash
+sudo sysctl -w kernel.perf_event_paranoid=-1      # once per boot
+mkdir -p build
+gcc -O2 -o build/main main.c
+./build/main test_data/sample_0_img.bin | sed -n '/Per-layer/,$p'
 ```
 
-### Controls
+If the host PMU is not exposed, these read `0`; use the RISC-V path
+instead, which reads a real `instret` counter inside QEMU:
 
-- **LEFT Arrow** - Previous sample
-- **RIGHT Arrow** - Next sample
-- **R** - Random sample
-- **Q** - Quit
+```bash
+make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
+qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./build/bench | sed -n '/Per-layer/,$p'
+```
 
-## Fixed Constraints
+`build/main` cannot run under QEMU (the newlib file-I/O limitation above),
+which is why the RISC-V benchmark is a separate baked build (`build/bench`).
 
-These values are fixed for the required multi-milestone compatibility:
+## 7. License
 
-- `d_model = 64` - Hidden dimension
-- `d_state = 64` - State space dimension
-- `image_size = 64` - Image resolution
-- `num_classes = 4` - Galaxy morphology classes
+This project is licensed under the MIT License (license file to be added).
 
-## Dependencies
+## 8. References
 
-Key packages:
-- `torch` - Deep learning framework
-- `numpy` - Numerical computing
-- `matplotlib` - Visualization
-- `pygame` - GUI framework
-- `einops` - Tensor operations
-- `galaxy_mnist` - Dataset loader
-
-## Support
-
-**Technical Questions:** s.taha.29208@khi.iba.edu.pk
-
-**References:**
-- Gu et al. (2022) - "Efficiently Modeling Long Sequences with Structured State Spaces" (ICLR)
-- Gu et al. (2022) - "On the Parameterization and Initialization of Diagonal State Space Models" (NeurIPS)
+1. Gu, A., et al. (2022). *Efficiently Modeling Long Sequences with
+   Structured State Spaces.* International Conference on Learning
+   Representations (ICLR).
+2. Gu, A., et al. (2022). *On the Parameterization and Initialization of
+   Diagonal State Space Models.* Advances in Neural Information Processing
+   Systems (NeurIPS).
+3. Walmsley, M., et al. (2022). *Galaxy Zoo DECaLS: Detailed visual
+   morphology measurements from volunteers and deep learning for 314,000
+   galaxies.* Monthly Notices of the Royal Astronomical Society (MNRAS),
+   509(3), 3966-3988.
+4. Izard, A. (2022). *GalaxyMNIST: A Dataset for Galaxy Morphology
+   Classification.* Available at: [albertizard.com/mnist](https://albertizard.com/mnist/)
+5. Walmsley, M. (2022). *GalaxyMNIST Repository.* Available at:
+   [github.com/mwalmsley/galaxy_mnist](https://github.com/mwalmsley/galaxy_mnist)
+6. RISC-V International. *RISC-V Vector Extension Specification.*
+   Available at: [github.com/riscv/riscv-v-spec](https://github.com/riscv/riscv-v-spec)
+7. RISC-V International. *RISC-V in Space and Aerospace.* Available at:
+   [riscv.org/risc-v-space-and-aerospace](https://riscv.org/risc-v-space-and-aerospace/)

@@ -1,11 +1,3 @@
-numpy==2.4.1
-matplotlib==3.10.1
-pygame==2.6.1
-einops==0.8.1
-IPython==9.4.0
-coloredlogs==15.0.1
-scikit-learn==1.8.0
-torchinfo==1.8.0
-tqdm==4.67.1
-seaborn==0.13.2
-git+https://github.com/mwalmsley/galaxy_mnist.git@c1fe9853a00bc34b2ff082585c6bb1654d34d239
+torch
+numpy
+einops

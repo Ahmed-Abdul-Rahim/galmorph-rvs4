@@ -1,72 +1,17 @@
-
-# *.ld (Optional: keep if you wrote them manually)
-# ==========================================
-# Build directories
-# C / C++
-# Compiled Object files
-# Executables
-# IDEs and Editors
-# Linker scripts (if they are generated)
-# Logs and Databases
-# Miscellaneous
-# Models and Checkpoints
-# Prerequisites
-# Python
-# RISC-V / Assembly / Embedded
-# Toolchain generated files
-* just old*
-*$py.class
-*.a
-*.app
-*.bin
-*.ckpt
-*.csv
-*.d
-*.dump
-*.egg-info/
-*.elf
-*.exe
-*.hex
-*.ko
-*.lib
-*.log
-*.lst
-*.map
-*.o
-*.obj
-*.out
-*.pt
-*.pth
-*.py[cod]
-*.so
-*.so.*
-*.sqlite3
-*.srec
-*.swo
-*.swp
-*:Zone.Identifier
-*_just old*
-*~
-.DS_Store
-.idea/
-.ipynb_checkpoints/
-.mypy_cache/
-.pytest_cache/
-.temp/
-.venv/
-.vscode/
-/tmp/
-ENV/
-[Bb]in/
-[Bb]uild/
-__pycache__/
+# Build
 build/
-data/
-dist/
-docs/
-full_benchmark.s
-images/*Zone.Identifier
-model_params/
-qemu_compile.s
-solution/
-venv/
+*.o
+*.out
+*.elf
+*.bin
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
