@@ -99,47 +99,94 @@ $$A_2[:, -1, :] \in \mathbb{R}^{64} \xrightarrow{\text{Linear}} Y_{logits} \in \
 └── weights.h               # baked model weights, for the RISC-V benchmark build
 ```
 
-## 4. Dependencies
+## 4. Prerequisites - install everything
 
-- C compiler (`gcc`/`clang`)
-- `riscv32-unknown-elf-gcc`
-- `qemu-riscv32` (or VeeR-iSS)
-- Python 3 + `requirements.txt`
-- Linux `perf`
+Commands below are for **Ubuntu / Debian / WSL**. On other systems install the same
+tools with your package manager. Run them once; then jump to Section 5.
 
-## 5. Usage
+### 4.1 Build tools + Python
+```bash
+sudo apt update
+sudo apt install -y build-essential git python3 python3-pip python3-venv
+```
 
-### Setup
+### 4.2 QEMU (RISC-V user-mode emulator, with the Vector extension)
+```bash
+sudo apt install -y qemu-user
+qemu-riscv32 --version        # need >= 7.0 for RVV; newer is better
+```
+If your distro's QEMU is older than 7.0 (no vector support), build it from source:
+<https://www.qemu.org/download/#source> (configure with `--target-list=riscv32-linux-user`).
 
-`weights.bin` and `test_data/` are not committed to the repository; they
-are generated from the trained checkpoint (`model.pth`):
+### 4.3 RISC-V cross-compiler with the Vector extension
+The RISC-V benchmark needs a `riscv32` toolchain that supports `rv32 + v` (vector).
+**If `riscv32-unknown-elf-gcc` is already on your PATH, skip this.** Otherwise build it
+once (~30-60 min):
+```bash
+sudo apt install -y autoconf automake autotools-dev curl python3 libmpc-dev \
+     libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf \
+     libtool patchutils bc zlib1g-dev libexpat-dev ninja-build cmake
+git clone https://github.com/riscv/riscv-gnu-toolchain
+cd riscv-gnu-toolchain
+./configure --prefix=/opt/riscv --with-arch=rv32gcv --with-abi=ilp32f
+sudo make                                    # builds riscv32-unknown-elf-gcc
+echo 'export PATH=/opt/riscv/bin:$PATH' >> ~/.bashrc && source ~/.bashrc
+cd ..
+riscv32-unknown-elf-gcc --version            # verify
+```
 
+### 4.4 (Optional) host instruction counter
+Only for the *host* per-layer counts in Section 6. Not needed to run or validate.
+```bash
+sudo apt install -y linux-tools-common linux-tools-generic   # provides perf
+```
+
+---
+
+## 5. Run it - copy-paste, top to bottom
+
+### 5.1 Clone and generate the data
+`weights.bin` and `test_data/` are **not** committed - they are generated from the
+trained checkpoint `model.pth` (this step needs the Python packages):
 ```bash
 git clone https://github.com/Ahmed-Abdul-Rahim/galmorph-rvs4.git
 cd galmorph-rvs4
+git switch c
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-python scripts/generate_data.py
+python scripts/generate_data.py          # writes weights.bin + test_data/*
 ```
 
-### Build and validate (host)
-
+### 5.2 Build and classify one image (host)
 ```bash
 make
-./build/main test_data/sample_0_img.bin
+./build/main test_data/sample_0_img.bin   # -> Prediction: Round Elliptical (88.17%)
+```
+
+### 5.3 Validate against PyTorch - one command, 5/5
+```bash
 ./build/main --validate
 ```
 
-### Run on RISC-V
-
-`qemu-riscv32`'s newlib C library cannot open files, so the RISC-V build
-bakes the weights and a sample image in via `weights.h` + `image.h`.
-`build/bench` takes no arguments; the image is baked in.
-
+### 5.4 See all four classes
 ```bash
-make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O2"
-qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./build/bench
+for c in round inbetween cigar edgeon; do
+  printf "%-10s -> " "$c"; ./build/main test_data/variety_$c.bin | sed -n 's/^Prediction: //p'
+done
 ```
+
+### 5.5 Real RISC-V per-layer instruction counts (all optimization levels)
+```bash
+for O in 0 2 3; do
+  make clean >/dev/null
+  make bench CC=riscv32-unknown-elf-gcc CFLAGS="-O$O"
+  echo "===== -O$O ====="
+  qemu-riscv32 -cpu rv32,v=true,vlen=256,elen=32 ./build/bench | sed -n '/Per-layer/,$p'
+done
+# least-of-three total ~= 1.85-2.1 billion instructions (~49x under the 91.2B baseline)
+```
+
+---
 
 ## 6. Benchmarking
 
