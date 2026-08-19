@@ -1,14 +1,16 @@
 /* =====================================================================
  * main.c  --  Single-file, optimized S4D galaxy-morphology classifier
  * ---------------------------------------------------------------------
- * 64x64 grayscale image -> Hilbert scan -> linear up-projection ->
- * S4D -> GELU -> S4D -> GELU -> take-last -> linear head -> softmax.
+ * d108 architecture:  RGB 3x64x64 image -> 4x4 patchify + Hilbert scan
+ * (256 tokens x 48) -> linear up-projection (48->108) -> 3 x [S4D -> GELU]
+ * (d_model=108, 54 complex modes) -> take-last -> linear head (108->4) ->
+ * softmax.
  *
- * This is the best C variant from the optimization study ("opt #14"):
+ * Carries the optimization study's techniques ("opt #14" lineage):
  *   - O(L*N) recurrent S4D scan (not O(L^2) convolution)
  *   - B_bar folded into C_bar  (x = B*x' change of variables; scan drops B)
- *   - per-channel discretization constants kept resident in vector regs
- *   - RVV 1.0 vectorized scan + vectorized GELU (with scalar fallbacks)
+ *   - RVV 1.0 vectorized scan (strip-mined: 54 modes span >1 m4 group)
+ *     + vectorized GELU (with scalar fallbacks)
  *   - custom Remez-minimax math (exp/sin/cos/tanh/sqrt) inlined in this TU
  * All math is from scratch: no libm dependency in the forward pass.
  *
@@ -24,14 +26,20 @@
 #include <riscv_vector.h>
 #endif
 
-/* ---- model dimensions ---- */
+/* ---- model dimensions (d108 architecture) ---- */
 #define IMG_SIZE     64      /* input is 64x64 */
-#define SEQ_LEN      4096    /* 64*64 positions after the Hilbert scan */
-#define D_MODEL      64      /* hidden dimension */
-#define D_STATE      64      /* S4D state dim (32 complex pairs) */
+#define PATCH_SIZE   4       /* 4x4 patches */
+#define GRID_SIZE    16      /* IMG_SIZE / PATCH_SIZE */
+#define SEQ_LEN      256     /* GRID_SIZE*GRID_SIZE patches after the Hilbert scan */
+#define IN_CHANNELS  3       /* RGB */
+#define PATCH_DIM    48      /* IN_CHANNELS * PATCH_SIZE * PATCH_SIZE */
+#define D_MODEL      108     /* hidden dimension */
+#define D_STATE      108     /* S4D state dim (54 complex pairs) */
+#define HALF_STATE   54      /* D_STATE / 2 */
+#define N_LAYERS     3       /* number of stacked S4D layers */
 #define N_CLASSES    4       /* galaxy classes */
-#define IN_CHANNELS  1       /* grayscale */
-#define WEIGHTS_SIZE_FLOATS 21124
+/* 256(idx) + (108*48+108) + 3*(108 + 108*54 + 108*54 + 108*54*2 + 108) + (4*108+4) */
+#define WEIGHTS_SIZE_FLOATS 76616
 
 static float bits2f(uint32_t b){ float f; memcpy(&f, &b, 4); return f; }
 static uint32_t f2bits(float f){ uint32_t b; memcpy(&b, &f, 4); return b; }
@@ -181,21 +189,24 @@ static void complex_exp(float a_real, float a_imag, float* out_real, float* out_
     *out_imag = exp_a * my_sin(a_imag);
 }
 
-void hilbert_scan(float input[IN_CHANNELS][IMG_SIZE][IMG_SIZE], float output[SEQ_LEN][IN_CHANNELS], const int* hilbert_indices) {
-
-//Flatten input manually and reorder
-    for (int d = 0 ; d < SEQ_LEN ; d++) {
-        int flat_idx = hilbert_indices[d];
-        
-        // SAFETY BOUNDS CHECK to prevent Segfaults if binary file formatting is weird
-        if (flat_idx < 0 || flat_idx >= IMG_SIZE * IMG_SIZE) {
-            flat_idx = 0; 
-        }
-        
-        int y = flat_idx / IMG_SIZE;
-        int x = flat_idx % IMG_SIZE;
+/* Patchify + Hilbert reorder.  The image is split into GRID_SIZE x GRID_SIZE
+ * patches of PATCH_SIZE x PATCH_SIZE.  Each output token is one patch,
+ * flattened in (channel, row, col) order to a PATCH_DIM vector -- matching the
+ * PyTorch unfold->permute(0,2,3,1,4,5)->view(B, num_patches, C*p*p) then the
+ * hilbert_indices reordering.  hilbert_indices[t] is a row-major grid index. */
+void hilbert_scan(float input[IN_CHANNELS][IMG_SIZE][IMG_SIZE], float output[SEQ_LEN][PATCH_DIM], const int* hilbert_indices) {
+    for (int t = 0 ; t < SEQ_LEN ; t++) {
+        int g = hilbert_indices[t];
+        if (g < 0 || g >= GRID_SIZE * GRID_SIZE) g = 0;   /* safety bounds check */
+        int gh = g / GRID_SIZE;
+        int gw = g % GRID_SIZE;
         for (int c = 0 ; c < IN_CHANNELS ; c++) {
-            output[d][c] = input[c][y][x];
+            for (int pr = 0 ; pr < PATCH_SIZE ; pr++) {
+                for (int pc = 0 ; pc < PATCH_SIZE ; pc++) {
+                    int k = c * (PATCH_SIZE * PATCH_SIZE) + pr * PATCH_SIZE + pc;
+                    output[t][k] = input[c][gh * PATCH_SIZE + pr][gw * PATCH_SIZE + pc];
+                }
+            }
         }
     }
 }
@@ -231,16 +242,16 @@ void s4d_layer(
     const float* C_imag,
     const float* D
 ) {
-    int half_state = D_STATE / 2;  // 32
+    int half_state = HALF_STATE;  // 54
 
     for (int h = 0; h < D_MODEL; h++) {
         float dt = my_exp(log_dt[h]);
 
-        float A_bar_real_arr[32], A_bar_imag_arr[32];
-        float B_bar_real_arr[32], B_bar_imag_arr[32];
-        float C_real_arr[32], C_imag_arr[32];  // hoisted C loads (loop-invariant across t)
+        float A_bar_real_arr[HALF_STATE], A_bar_imag_arr[HALF_STATE];
+        float B_bar_real_arr[HALF_STATE], B_bar_imag_arr[HALF_STATE];
+        float C_real_arr[HALF_STATE], C_imag_arr[HALF_STATE];  // hoisted C loads (loop-invariant across t)
 
-        // Discretize once per channel, these stay constant for all 4096 timesteps.
+        // Discretize once per channel, these stay constant for all SEQ_LEN timesteps.
         for (int n = 0; n < half_state; n++) {
             float lambda_real = -my_exp(log_A_real[h * half_state + n]);
             float lambda_imag = A_imag[h * half_state + n];
@@ -267,34 +278,42 @@ void s4d_layer(
         }
 
         // State vector for this channel, zeroed at t=0.
-        float x_real[32] = {0};
-        float x_imag[32] = {0};
+        float x_real[HALF_STATE] = {0};
+        float x_imag[HALF_STATE] = {0};
 
-#ifdef __riscv
-        {
-            size_t vl = __riscv_vsetvl_e32m4(half_state);           // 32 states, one vector
-            vfloat32m1_t vzero = __riscv_vfmv_v_f_f32m1(0.0f, __riscv_vsetvlmax_e32m1());
-            // Load per-channel CONSTANTS once; kept resident across all timesteps.
-            vfloat32m4_t var = __riscv_vle32_v_f32m4(A_bar_real_arr, vl);
-            vfloat32m4_t vai = __riscv_vle32_v_f32m4(A_bar_imag_arr, vl);
-            vfloat32m4_t vcr = __riscv_vle32_v_f32m4(C_real_arr, vl);
-            vfloat32m4_t vci = __riscv_vle32_v_f32m4(C_imag_arr, vl);
-            // Recurrent STATE stays in vector registers across the whole t-loop.
-            vfloat32m4_t vxr = __riscv_vfmv_v_f_f32m4(0.0f, vl);
-            vfloat32m4_t vxi = __riscv_vfmv_v_f_f32m4(0.0f, vl);
-            for (int t = 0; t < SEQ_LEN; t++) {
-                float u_t = input[t][h];
+#if defined(__riscv) && !defined(FORCE_SCALAR)
+        /* 54 complex modes exceed one m4 vector group (32 lanes @ VLEN=256),
+         * so the scan is strip-mined over the state each timestep.  State and
+         * per-channel constants live in memory (cheap under the QEMU cost
+         * model); the B_bar-folded update and the ordered cross-lane reduction
+         * are preserved.  The running reduction is chained across strips (each
+         * strip's partial sum seeds the next) for an exact ordered sum over all
+         * HALF_STATE modes. */
+        for (int t = 0; t < SEQ_LEN; t++) {
+            float u_t = input[t][h];
+            vfloat32m1_t vred = __riscv_vfmv_v_f_f32m1(0.0f, __riscv_vsetvlmax_e32m1());
+            for (int off = 0; off < half_state; ) {
+                size_t vl = __riscv_vsetvl_e32m4(half_state - off);
+                vfloat32m4_t vxr = __riscv_vle32_v_f32m4(&x_real[off], vl);
+                vfloat32m4_t vxi = __riscv_vle32_v_f32m4(&x_imag[off], vl);
+                vfloat32m4_t var = __riscv_vle32_v_f32m4(&A_bar_real_arr[off], vl);
+                vfloat32m4_t vai = __riscv_vle32_v_f32m4(&A_bar_imag_arr[off], vl);
                 vfloat32m4_t vdr = __riscv_vfmul_vv_f32m4(var, vxr, vl);
                 vdr = __riscv_vfnmsac_vv_f32m4(vdr, vai, vxi, vl);   // ar*xr - ai*xi
                 vfloat32m4_t vdi = __riscv_vfmul_vv_f32m4(var, vxi, vl);
-                vdi = __riscv_vfmacc_vv_f32m4(vdi, vai, vxr, vl);    // ar*xi + ai*xr  = x'_i(t)
-                vxr = __riscv_vfadd_vf_f32m4(vdr, u_t, vl);          // dr + u  (B folded away)
-                vxi = vdi;                                          // x'_i(t) (register coalesce)
+                vdi = __riscv_vfmacc_vv_f32m4(vdi, vai, vxr, vl);    // ar*xi + ai*xr
+                vxr = __riscv_vfadd_vf_f32m4(vdr, u_t, vl);          // + u  (B folded away)
+                vxi = vdi;
+                __riscv_vse32_v_f32m4(&x_real[off], vxr, vl);
+                __riscv_vse32_v_f32m4(&x_imag[off], vxi, vl);
+                vfloat32m4_t vcr = __riscv_vle32_v_f32m4(&C_real_arr[off], vl);
+                vfloat32m4_t vci = __riscv_vle32_v_f32m4(&C_imag_arr[off], vl);
                 vfloat32m4_t vt = __riscv_vfmul_vv_f32m4(vcr, vxr, vl);
                 vt = __riscv_vfnmsac_vv_f32m4(vt, vci, vxi, vl);     // Cbar includes the *2
-                vfloat32m1_t vred = __riscv_vfredosum_vs_f32m4_f32m1(vt, vzero, vl);
-                output[t][h] = D[h]*u_t + __riscv_vfmv_f_s_f32m1_f32(vred);
+                vred = __riscv_vfredosum_vs_f32m4_f32m1(vt, vred, vl); // chain across strips
+                off += (int)vl;
             }
+            output[t][h] = D[h]*u_t + __riscv_vfmv_f_s_f32m1_f32(vred);
         }
 #else
         for (int t = 0; t < SEQ_LEN; t++) {
@@ -313,7 +332,7 @@ void s4d_layer(
     }
 }
 
-#ifdef __riscv
+#if defined(__riscv) && !defined(FORCE_SCALAR)
 static inline vfloat32m4_t v_exp_m4(vfloat32m4_t x, size_t vl){
     x = __riscv_vfmax_vf_f32m4(x, -88.0f, vl);
     x = __riscv_vfmin_vf_f32m4(x,  88.0f, vl);
@@ -344,7 +363,7 @@ void gelu(float* x, int size) {
     const float k = my_sqrt(2.0f / pi);
     const float coeff = 0.044715f;
 
-#ifdef __riscv
+#if defined(__riscv) && !defined(FORCE_SCALAR)
     size_t vl;
     for (int i = 0; i < size; i += (int)vl) {
         vl = __riscv_vsetvl_e32m4(size - i);
@@ -407,10 +426,11 @@ void take_last_timestamp(float input[SEQ_LEN][D_MODEL], float output[D_MODEL]) {
  * The forward pass brackets every layer with the instruction counter and
  * prints a per-layer breakdown (the whole point of this study).
  * ===================================================================== */
-static const char *LAYER_NAMES[9] = {
-    "hilbert","input_proj","s4_1","gelu_1","s4_2","gelu_2","ttls","output_proj","softmax"
+#define N_STAGES 11
+static const char *LAYER_NAMES[N_STAGES] = {
+    "hilbert","input_proj","s4_1","gelu_1","s4_2","gelu_2","s4_3","gelu_3","ttls","output_proj","softmax"
 };
-static uint64_t g_layer_insts[9];
+static uint64_t g_layer_insts[N_STAGES];
 
 void model_forward(
     float image[IN_CHANNELS][IMG_SIZE][IMG_SIZE],
@@ -419,28 +439,24 @@ void model_forward(
     const int   *hilbert_indices
 ) {
     int off = 0;
-    off += 4096 * (int)sizeof(int);
-    const float *up_w   = (const float *)((const char *)model_weights + off); off += 64*1*(int)sizeof(float);
-    const float *up_b   = (const float *)((const char *)model_weights + off); off += 64*(int)sizeof(float);
-    const float *s1_ldt = (const float *)((const char *)model_weights + off); off += 64*(int)sizeof(float);
-    const float *s1_lar = (const float *)((const char *)model_weights + off); off += 64*32*(int)sizeof(float);
-    const float *s1_ai  = (const float *)((const char *)model_weights + off); off += 64*32*(int)sizeof(float);
-    const float *s1_cr  = (const float *)((const char *)model_weights + off);
-    const float *s1_ci  = s1_cr + 1;                                          off += 64*32*2*(int)sizeof(float);
-    const float *s1_D   = (const float *)((const char *)model_weights + off); off += 64*(int)sizeof(float);
-    const float *s2_ldt = (const float *)((const char *)model_weights + off); off += 64*(int)sizeof(float);
-    const float *s2_lar = (const float *)((const char *)model_weights + off); off += 64*32*(int)sizeof(float);
-    const float *s2_ai  = (const float *)((const char *)model_weights + off); off += 64*32*(int)sizeof(float);
-    const float *s2_cr  = (const float *)((const char *)model_weights + off);
-    const float *s2_ci  = s2_cr + 1;                                          off += 64*32*2*(int)sizeof(float);
-    const float *s2_D   = (const float *)((const char *)model_weights + off); off += 64*(int)sizeof(float);
-    const float *fc_w   = (const float *)((const char *)model_weights + off); off += 4*64*(int)sizeof(float);
-    const float *fc_b   = (const float *)((const char *)model_weights + off);
+    off += SEQ_LEN * (int)sizeof(int);   /* hilbert indices (256 int32) */
+    const float *up_w = (const float *)((const char *)model_weights + off); off += D_MODEL*PATCH_DIM*(int)sizeof(float);
+    const float *up_b = (const float *)((const char *)model_weights + off); off += D_MODEL*(int)sizeof(float);
+    const float *s_ldt[N_LAYERS], *s_lar[N_LAYERS], *s_ai[N_LAYERS], *s_cr[N_LAYERS], *s_ci[N_LAYERS], *s_D[N_LAYERS];
+    for (int L = 0; L < N_LAYERS; L++) {
+        s_ldt[L] = (const float *)((const char *)model_weights + off); off += D_MODEL*(int)sizeof(float);
+        s_lar[L] = (const float *)((const char *)model_weights + off); off += D_MODEL*HALF_STATE*(int)sizeof(float);
+        s_ai[L]  = (const float *)((const char *)model_weights + off); off += D_MODEL*HALF_STATE*(int)sizeof(float);
+        s_cr[L]  = (const float *)((const char *)model_weights + off);
+        s_ci[L]  = s_cr[L] + 1;                                        off += D_MODEL*HALF_STATE*2*(int)sizeof(float);
+        s_D[L]   = (const float *)((const char *)model_weights + off); off += D_MODEL*(int)sizeof(float);
+    }
+    const float *fc_w = (const float *)((const char *)model_weights + off); off += N_CLASSES*D_MODEL*(int)sizeof(float);
+    const float *fc_b = (const float *)((const char *)model_weights + off);
 
-    static float hilbert_out[SEQ_LEN][IN_CHANNELS];
-    static float proj_out[SEQ_LEN][D_MODEL];
-    static float s4d1_out[SEQ_LEN][D_MODEL];
-    static float s4d2_out[SEQ_LEN][D_MODEL];
+    static float hilbert_out[SEQ_LEN][PATCH_DIM];
+    static float bufA[SEQ_LEN][D_MODEL];
+    static float bufB[SEQ_LEN][D_MODEL];
     static float pooled[D_MODEL];
     static float logits[N_CLASSES];
 
@@ -448,15 +464,18 @@ void model_forward(
     #define TICK(i) do { t1 = get_inst_count(); g_layer_insts[i] = t1 - t0; t0 = t1; } while (0)
 
     hilbert_scan(image, hilbert_out, hilbert_indices);                                     TICK(0);
-    linear((float*)hilbert_out, (float*)proj_out, up_w, up_b, SEQ_LEN, IN_CHANNELS, D_MODEL); TICK(1);
-    s4d_layer(proj_out, s4d1_out, s1_ldt, s1_lar, s1_ai, s1_cr, s1_ci, s1_D);               TICK(2);
-    gelu(&s4d1_out[0][0], SEQ_LEN * D_MODEL);                                               TICK(3);
-    s4d_layer(s4d1_out, s4d2_out, s2_ldt, s2_lar, s2_ai, s2_cr, s2_ci, s2_D);               TICK(4);
-    gelu(&s4d2_out[0][0], SEQ_LEN * D_MODEL);                                               TICK(5);
-    take_last_timestamp(s4d2_out, pooled);                                                 TICK(6);
-    linear(pooled, logits, fc_w, fc_b, 1, D_MODEL, N_CLASSES);                              TICK(7);
+    linear((float*)hilbert_out, (float*)bufA, up_w, up_b, SEQ_LEN, PATCH_DIM, D_MODEL);     TICK(1);
+    /* 3 x [S4D -> GELU], ping-ponging bufA/bufB (final activations end in bufB) */
+    s4d_layer(bufA, bufB, s_ldt[0], s_lar[0], s_ai[0], s_cr[0], s_ci[0], s_D[0]);           TICK(2);
+    gelu(&bufB[0][0], SEQ_LEN * D_MODEL);                                                   TICK(3);
+    s4d_layer(bufB, bufA, s_ldt[1], s_lar[1], s_ai[1], s_cr[1], s_ci[1], s_D[1]);           TICK(4);
+    gelu(&bufA[0][0], SEQ_LEN * D_MODEL);                                                   TICK(5);
+    s4d_layer(bufA, bufB, s_ldt[2], s_lar[2], s_ai[2], s_cr[2], s_ci[2], s_D[2]);           TICK(6);
+    gelu(&bufB[0][0], SEQ_LEN * D_MODEL);                                                   TICK(7);
+    take_last_timestamp(bufB, pooled);                                                     TICK(8);
+    linear(pooled, logits, fc_w, fc_b, 1, D_MODEL, N_CLASSES);                              TICK(9);
     for (int i = 0; i < N_CLASSES; i++) probabilities[i] = logits[i];
-    softmax(probabilities, N_CLASSES);                                                     TICK(8);
+    softmax(probabilities, N_CLASSES);                                                     TICK(10);
     #undef TICK
 }
 
@@ -558,7 +577,7 @@ int main(int argc, char *argv[]) {
 
     uint64_t total = 0;
     printf("\nPer-layer dynamic instruction counts\n");
-    for (int i = 0; i < 9; i++) { printf("  %-12s : %12llu\n", LAYER_NAMES[i], (unsigned long long)g_layer_insts[i]); total += g_layer_insts[i]; }
+    for (int i = 0; i < N_STAGES; i++) { printf("  %-12s : %12llu\n", LAYER_NAMES[i], (unsigned long long)g_layer_insts[i]); total += g_layer_insts[i]; }
     printf("  %-12s : %12llu\n", "TOTAL", (unsigned long long)total);
     fflush(stdout);
     return 0;
