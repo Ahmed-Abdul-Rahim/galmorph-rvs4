@@ -61,11 +61,45 @@ terminal as a warning. Read those warnings. The two that matter most:
   `scripts/find_stats.sh` on your stats.txt to look for a real
   breakdown for your gem5 version.
 
+## Step 0: isolate this repo's Python prerequisites
+
+Before touching gem5/McPAT, set up a dedicated environment for this
+*repository's* own Python packages (`torch`, `numpy`, `einops` from the
+`requirements.txt` at the repo root -- used by the accuracy/weight-export
+scripts, not by anything below). Keeping these in their own environment
+means `pip install` never has to touch, or fight with, your system Python.
+
+With venv:
+```
+python3 -m venv ~/.venvs/galmorph-rvs4
+source ~/.venvs/galmorph-rvs4/bin/activate
+pip install -r ../requirements.txt
+```
+or with conda:
+```
+conda create -n galmorph-rvs4 python=3.11 -y
+conda activate galmorph-rvs4
+pip install -r ../requirements.txt
+```
+
+**Deactivate it again before Steps 1-3 and before running anything below
+that touches gem5 or McPAT** (`conda deactivate`, or just open a fresh
+shell if you used venv). gem5's build links against the apt packages
+`01_install_deps.sh` installs (boost, protobuf, hdf5); conda in
+particular ships its own copies of those same libraries and has already
+been found to conflict with gem5's build in this project. gem5 itself
+needs no pip packages for what this pipeline does (see the note in
+`02_build_gem5.sh` if you're curious why `--break-system-packages` isn't
+used anywhere here).
+
 ## Step by step
 
 1. `./01_install_deps.sh`
-2. `./02_build_gem5.sh` -- slow, expect 20 minutes to over an hour.
-3. `./03_build_mcpat.sh`
+2. `./02_build_gem5.sh` -- slow, expect 20 minutes to over an hour. Pins
+   gem5 to the exact tagged release (`v25.1.0.1`) this pipeline has been
+   validated against, rather than the moving `stable` branch, so a fresh
+   clone on a different machine or a different day builds the same gem5.
+3. `./03_build_mcpat.sh` -- pins McPAT to `v1.3.0` for the same reason.
 4. Apply the scalar-build patch to your own copy of the repository, OR
    just copy `patched-source/main.c` and `patched-source/Makefile`
    over your repository's copies (they are your original files plus
@@ -89,7 +123,26 @@ terminal as a warning. Read those warnings. The two that matter most:
 8. `./scripts/run_mcpat.sh` -- converts both runs and calls McPAT
    twice.
 9. `python3 scripts/compare_report.py` -- prints a short RVV-vs-scalar
-   table and writes `comparison.md`.
+   table (Area, Power, **simulated execution time, energy/inference**)
+   and writes `comparison.md`.
+
+## Timing: simSeconds vs hostSeconds -- always use simSeconds
+
+Every timing and energy number this pipeline produces comes from gem5's
+`simSeconds` stat, which `compare_report.py` reads straight out of
+`m5out-*/stats.txt`. `simSeconds` is derived purely from the simulated
+pipeline's cycle count and clock frequency, inside gem5's own
+event-driven scheduler -- your host machine's speed never enters that
+computation, so it is identical for the same binary + gem5 build +
+config on any machine.
+
+gem5 also writes `hostSeconds`, which is the real wall-clock time gem5
+itself took to run on your machine -- that one *does* scale with host
+speed. Never substitute `hostSeconds`, and never wrap `run_both.sh` in
+an external `time`, for anything you plan to compare across systems or
+report as "execution time" or "energy" -- either will silently make
+your numbers stop matching someone else's run. `energy/inference` in
+`compare_report.py` is `Runtime Dynamic power x simSeconds`.
 
 ## If something breaks
 
@@ -123,5 +176,6 @@ scripts/find_stats.sh       greps a stats.txt for the stat groups McPAT needs
 mcpat/template_inorder_riscv.xml   the McPAT input file (read the comments)
 mcpat/gem5_to_mcpat.py      fills the template from a stats.txt
 scripts/run_mcpat.sh        converts both runs and calls the mcpat binary
-scripts/compare_report.py   prints and saves the RVV-vs-scalar comparison
+scripts/compare_report.py   prints and saves the RVV-vs-scalar comparison,
+                            including simSeconds-based exec time and energy
 ```

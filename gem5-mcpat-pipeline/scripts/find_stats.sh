@@ -30,5 +30,8 @@ grep -iE "dcache" "$STATS" | grep -iE "overallAccesses|overallMisses|ReadReq|Wri
 section "TLB"
 grep -iE "\.itb\.|\.dtb\.|tlb" "$STATS" | grep -iE "accesses|misses" || echo "(no match)"
 
-section "wall-clock / sim seconds (top of file, not per-cpu)"
-grep -E "^sim_seconds|^sim_ticks" "$STATS" || echo "(no match)"
+section "simulated execution time -- USE THIS for energy/time comparisons across systems"
+grep -E "^simSeconds|^simTicks|^sim_seconds|^sim_ticks" "$STATS" || echo "(no match)"
+
+section "host wall-clock time -- do NOT use for energy/time comparisons (tracks THIS machine's speed running gem5, not the simulated core)"
+grep -E "^hostSeconds|^hostTickRate|^host_seconds" "$STATS" || echo "(no match)"

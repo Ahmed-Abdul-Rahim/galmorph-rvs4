@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  template_inorder_riscv.xml
+
+  A McPAT 1.3 input file for one small in-order RISC-V core. No public,
+  ready-made McPAT template exists for RISC-V, so this was built by hand
+  from McPAT's own ProcessorDescriptionFiles examples (in-order ARM/Alpha
+  style cores), not copied from one specific file.
+
+  Two kinds of value live in here. Read the comment above each one:
+    - "GEM5:<key>"          filled automatically from your stats.txt by
+                             gem5_to_mcpat.py, using the STAT_MAP dict at
+                             the top of that script.
+    - "STATIC ASSUMPTION"   a plain number chosen to represent a small
+                             power-constrained embedded core. Not read
+                             from gem5. Check these against your real
+                             target before you trust the output numbers.
+
+  Before your first real run: validate this file's structure against the
+  sample XML files that ship inside your own McPAT checkout
+  (ProcessorDescriptionFiles/*.xml). McPAT's parser error messages name
+  the exact tag it did not like, so a mismatch here is a quick fix, not
+  a mystery.
+-->
+<component id="root" name="root">
+  <component id="system" name="system">
+    <param name="number_of_cores" value="1"/>
+    <param name="number_of_L1Directories" value="0"/>
+    <param name="number_of_L2Directories" value="0"/>
+    <param name="number_of_L2s" value="1"/>
+    <param name="number_of_L3s" value="0"/>
+    <param name="number_of_NoCs" value="0"/>
+    <param name="homogeneous_cores" value="1"/>
+    <param name="homogeneous_L2s" value="1"/>
+    <param name="homogeneous_L1Directories" value="0"/>
+    <param name="homogeneous_L2Directories" value="0"/>
+    <param name="homogeneous_L3s" value="0"/>
+    <param name="homogeneous_ccs" value="1"/>
+    <param name="homogeneous_NoCs" value="0"/>
+    <!-- STATIC ASSUMPTION: process node in nm. No real target part was given, -->
+    <!-- so this is a stand-in. Change it to your real target's node. -->
+    <param name="core_tech_node" value="22"/>
+    <!-- GEM5: matches the clk freq flag passed to se_config.py, in MHz -->
+    <param name="target_core_clockrate" value="100"/>
+    <!-- STATIC ASSUMPTION: ambient temperature in Kelvin, McPAT default -->
+    <param name="temperature" value="340"/>
+    <param name="number_cache_levels" value="2"/>
+    <param name="interconnect_projection_type" value="0"/>
+    <!-- device_type: 0 high performance, 1 low standby power, 2 low operating power -->
+    <!-- STATIC ASSUMPTION: 1, for a power-constrained embedded core -->
+    <param name="device_type" value="1"/>
+    <param name="longer_channel_device" value="1"/>
+    <param name="power_gating" value="0"/>
+    <param name="machine_bits" value="32"/>
+    <param name="virtual_address_width" value="32"/>
+    <param name="physical_address_width" value="32"/>
+    <param name="virtual_memory_page_size" value="4096"/>
+    <!-- GEM5: high confidence -->
+    <stat name="total_cycles" value="51334187"/>
+    <stat name="idle_cycles" value="0"/>
+    <stat name="busy_cycles" value="51334187"/>
+
+    <component id="system.core0" name="core0">
+      <param name="clock_rate" value="100"/>
+      <param name="opt_local" value="0"/>
+      <param name="instruction_length" value="32"/>
+      <param name="opcode_width" value="7"/>
+      <param name="x86" value="0"/>
+      <param name="micro_opcode_width" value="8"/>
+      <!-- machine_type: 1 = in-order, matches the cpu flag (minor/timing/atomic) in se_config.py -->
+      <param name="machine_type" value="1"/>
+      <param name="number_hardware_threads" value="1"/>
+      <!-- STATIC ASSUMPTION: fetch/decode/issue/commit width. -->
+      <!-- Left at 1 to match RiscvTimingSimpleCPU / RiscvAtomicSimpleCPU exactly. -->
+      <!-- If you ran with cpu=minor, VeeR EH1 is really dual-issue: change these -->
+      <!-- four widths to 2 for a closer structural match (gem5's own timing -->
+      <!-- still drove the *cycle count* at whatever width MinorCPU modeled). -->
+      <param name="fetch_width" value="1"/>
+      <param name="number_instruction_fetch_ports" value="1"/>
+      <param name="decode_width" value="1"/>
+      <param name="issue_width" value="1"/>
+      <param name="peak_issue_width" value="1"/>
+      <param name="commit_width" value="1"/>
+      <param name="fp_issue_width" value="1"/>
+      <param name="prediction_width" value="1"/>
+      <!-- STATIC ASSUMPTION: int,fp pipeline depth. 9 matches a VeeR EH1-class -->
+      <!-- 9-stage in-order pipeline; not read from gem5. -->
+      <param name="pipeline_depth" value="9,9"/>
+      <param name="ALU_per_core" value="1"/>
+      <param name="MUL_per_core" value="1"/>
+      <param name="FPU_per_core" value="1"/>
+      <param name="instruction_buffer_size" value="8"/>
+      <param name="decoded_stream_buffer_size" value="8"/>
+      <param name="instruction_window_scheme" value="0"/>
+      <!-- STATIC ASSUMPTION: small in-order instruction window/buffer, not a real OoO window -->
+      <param name="instruction_window_size" value="8"/>
+      <param name="fp_instruction_window_size" value="4"/>
+      <!-- ROB_size 0: no reorder buffer, this is an in-order core -->
+      <param name="ROB_size" value="0"/>
+      <param name="archi_Regs_IRF_size" value="32"/>
+      <param name="archi_Regs_FRF_size" value="32"/>
+      <param name="phy_Regs_IRF_size" value="32"/>
+      <param name="phy_Regs_FRF_size" value="32"/>
+      <param name="rename_scheme" value="0"/>
+      <param name="register_windows_size" value="0"/>
+      <param name="LSU_order" value="inorder"/>
+      <param name="store_buffer_size" value="4"/>
+      <param name="load_buffer_size" value="4"/>
+      <param name="memory_ports" value="1"/>
+      <param name="RAS_size" value="4"/>
+      <param name="fp_issue_width" value="1"/>
+      <param name="fetch_throughput" value="1"/>
+      <param name="peak_issue_width" value="1"/>
+
+      <!-- GEM5: total instructions committed, high confidence -->
+      <stat name="total_instructions" value="33052461"/>
+      <!-- GEM5: check via find_stats.sh; falls back to a static int/fp split if not found -->
+      <stat name="int_instructions" value="16526230.500000"/>
+      <stat name="fp_instructions" value="16526230.500000"/>
+      <stat name="branch_instructions" value="3688372"/>
+      <stat name="branch_mispredictions" value="375387"/>
+      <stat name="load_instructions" value="7512142"/>
+      <stat name="store_instructions" value="1914183"/>
+      <stat name="committed_instructions" value="33052461"/>
+      <stat name="committed_int_instructions" value="16526230.500000"/>
+      <stat name="committed_fp_instructions" value="16526230.500000"/>
+      <stat name="pipeline_duty_cycle" value="1"/>
+      <stat name="total_cycles" value="51334187"/>
+      <stat name="idle_cycles" value="0"/>
+      <stat name="busy_cycles" value="51334187"/>
+      <stat name="ROB_reads" value="0"/>
+      <stat name="ROB_writes" value="0"/>
+      <stat name="rename_reads" value="0"/>
+      <stat name="rename_writes" value="0"/>
+      <stat name="fp_rename_reads" value="0"/>
+      <stat name="fp_rename_writes" value="0"/>
+      <stat name="inst_window_reads" value="33052461"/>
+      <stat name="inst_window_writes" value="33052461"/>
+      <stat name="inst_window_wakeup_accesses" value="33052461"/>
+      <stat name="fp_inst_window_reads" value="16526230.500000"/>
+      <stat name="fp_inst_window_writes" value="16526230.500000"/>
+      <stat name="fp_inst_window_wakeup_accesses" value="16526230.500000"/>
+      <!-- STATIC ASSUMPTION: 2 reads + 1 write per int instruction, a common McPAT rule of thumb -->
+      <stat name="int_regfile_reads" value="33052461"/>
+      <stat name="int_regfile_writes" value="16526230.500000"/>
+      <stat name="float_regfile_reads" value="33052461"/>
+      <stat name="float_regfile_writes" value="16526230.500000"/>
+      <stat name="function_calls" value="0"/>
+      <stat name="context_switches" value="0"/>
+      <stat name="ialu_accesses" value="16526230.500000"/>
+      <stat name="fpu_accesses" value="16526230.500000"/>
+      <stat name="mul_accesses" value="0"/>
+      <stat name="cdb_alu_accesses" value="16526230.500000"/>
+      <stat name="cdb_mul_accesses" value="0"/>
+      <stat name="cdb_fpu_accesses" value="16526230.500000"/>
+
+      <component id="system.core0.predictor" name="PBT">
+        <!-- STATIC ASSUMPTION: small embedded branch predictor -->
+        <param name="local_predictor_size" value="10,3"/>
+        <param name="local_predictor_entries" value="1024"/>
+        <param name="global_predictor_entries" value="0"/>
+        <param name="global_predictor_bits" value="2"/>
+        <param name="chooser_predictor_entries" value="0"/>
+        <param name="chooser_predictor_bits" value="2"/>
+        <stat name="predictor_accesses" value="3688372"/>
+      </component>
+
+      <component id="system.core0.itlb" name="itlb">
+        <!-- STATIC ASSUMPTION: small embedded ITLB -->
+        <param name="number_entries" value="16"/>
+        <stat name="total_accesses" value="33052461"/>
+        <stat name="total_misses" value="0"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.icache" name="icache">
+        <!-- icache_config: size(B),block_width(B),associativity,bank,throughput,latency,output_width,cache_policy -->
+        <!-- GEM5: size matches the l1i flag passed to se_config.py (bytes) -->
+        <param name="icache_config" value="16384,32,2,1,1,3,32,0"/>
+        <param name="buffer_sizes" value="4,4,4,0"/>
+        <stat name="read_accesses" value="11940333"/>
+        <stat name="read_misses" value="143"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.dtlb" name="dtlb">
+        <!-- STATIC ASSUMPTION: small embedded DTLB -->
+        <param name="number_entries" value="16"/>
+        <stat name="total_accesses" value="9426325"/>
+        <stat name="total_misses" value="0"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.dcache" name="dcache">
+        <!-- GEM5: size matches the l1d flag passed to se_config.py (bytes) -->
+        <param name="dcache_config" value="16384,32,2,1,1,3,32,0"/>
+        <param name="buffer_sizes" value="4,4,4,4"/>
+        <stat name="read_accesses" value="7512142"/>
+        <stat name="write_accesses" value="1914183"/>
+        <stat name="read_misses" value="36293"/>
+        <stat name="write_misses" value="28864"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.BTB" name="BTB">
+        <!-- STATIC ASSUMPTION: small embedded BTB -->
+        <param name="BTB_config" value="1024,4,2,1,1,3"/>
+        <stat name="read_accesses" value="3688372"/>
+        <stat name="write_accesses" value="375387"/>
+      </component>
+    </component>
+    <component id="system.L20" name="L20">
+      <!-- McPAT's parser walks system's children by POSITION, not by
+           name. With 1 core and zero L2/L3/NoC/directories, its
+           position counter never moves off 0, so it re-reads
+           system.core0 when it goes looking for system.mc next,
+           which is the "number_of_cores/.../NoCs is/are not correct"
+           error. There is no XML-only way to skip this; one small,
+           mostly-idle L2 is the standard workaround. It does add a
+           small, real amount of area/leakage to the total, not
+           exactly zero: check this component's own line in the
+           print_level 5 output if you want a strictly core-only
+           number. -->
+      <param name="L2_config" value="2048,32,1,1,1,3,32,0"/>
+      <param name="clockrate" value="100"/>
+      <param name="vdd" value="0"/>
+      <param name="merged_dir" value="0"/>
+      <param name="ports" value="1,1,1"/>
+      <param name="device_type" value="0"/>
+      <param name="threeD_stack" value="0"/>
+      <param name="buffer_sizes" value="1,1,1,1"/>
+      <stat name="total_accesses" value="1"/>
+      <stat name="read_accesses" value="1"/>
+      <stat name="write_accesses" value="0"/>
+      <stat name="total_hits" value="1"/>
+      <stat name="total_misses" value="0"/>
+      <stat name="read_hits" value="1"/>
+      <stat name="write_hits" value="0"/>
+      <stat name="read_misses" value="0"/>
+      <stat name="write_misses" value="0"/>
+      <stat name="replacements" value="0"/>
+      <stat name="write_backs" value="0"/>
+      <stat name="miss_buffer_accesses" value="0"/>
+      <stat name="fill_buffer_accesses" value="0"/>
+      <stat name="prefetch_buffer_accesses" value="0"/>
+      <stat name="prefetch_buffer_writes" value="0"/>
+      <stat name="prefetch_buffer_reads" value="0"/>
+      <stat name="wbb_writes" value="0"/>
+      <stat name="wbb_reads" value="0"/>
+      <stat name="conflicts" value="0"/>
+      <stat name="duty_cycle" value="0.0001"/>
+    </component>
+    <component id="system.mc" name="mc">
+      <param name="type" value="0"/>
+      <param name="mc_clock" value="200"/>
+      <param name="vdd" value="0"/>
+      <param name="peak_transfer_rate" value="3200"/>
+      <param name="block_size" value="64"/>
+      <param name="number_mcs" value="0"/>
+      <param name="memory_channels_per_mc" value="1"/>
+      <param name="number_ranks" value="2"/>
+      <param name="withPHY" value="0"/>
+      <param name="req_window_size_per_channel" value="32"/>
+      <param name="IO_buffer_size_per_channel" value="32"/>
+      <param name="databus_width" value="128"/>
+      <param name="addressbus_width" value="51"/>
+      <stat name="memory_accesses" value="0"/>
+      <stat name="memory_reads" value="0"/>
+      <stat name="memory_writes" value="0"/>
+    </component>
+
+    <component id="system.niu" name="niu">
+      <param name="type" value="0"/>
+      <param name="clockrate" value="350"/>
+      <param name="vdd" value="0"/>
+      <param name="number_units" value="0"/>
+      <stat name="duty_cycle" value="1.0"/>
+      <stat name="total_load_perc" value="0.7"/>
+    </component>
+
+    <component id="system.pcie" name="pcie">
+      <param name="type" value="0"/>
+      <param name="withPHY" value="1"/>
+      <param name="clockrate" value="350"/>
+      <param name="vdd" value="0"/>
+      <param name="number_units" value="0"/>
+      <param name="num_channels" value="8"/>
+      <stat name="duty_cycle" value="1.0"/>
+      <stat name="total_load_perc" value="0.7"/>
+    </component>
+
+    <component id="system.flashc" name="flashc">
+      <param name="number_flashcs" value="0"/>
+      <param name="type" value="1"/>
+      <param name="vdd" value="0"/>
+      <param name="withPHY" value="1"/>
+      <param name="peak_transfer_rate" value="200"/>
+      <stat name="duty_cycle" value="1.0"/>
+      <stat name="total_load_perc" value="0.7"/>
+    </component>
+  </component>
+</component>

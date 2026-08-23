@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Run this once in your WSL Ubuntu shell, with sudo rights.
+# These are OS-level build dependencies (boost, protobuf, scons, ...) that
+# gem5's scons build links against -- apt installs them system-wide
+# regardless of any Python venv/conda env you have active, so it does not
+# matter whether Step 0's environment is active or not for this script.
 set -euo pipefail
 
 sudo apt-get update

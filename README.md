@@ -51,8 +51,15 @@ sudo apt update
 sudo apt install -y build-essential git python3 python3-pip qemu-user
 # RISC-V cross compiler with the V extension (skip if riscv32-unknown-elf-gcc is on PATH)
 #   build riscv-gnu-toolchain --with-arch=rv32gcv --with-abi=ilp32f  (see gem5-mcpat-pipeline/)
-pip install numpy            # for the accuracy scripts
-# gem5 + McPAT: one-time, see TEST 3 below
+
+# Python deps (numpy, torch, einops) go in their own environment, not system
+# Python -- see "Step 0" in gem5-mcpat-pipeline/README.md for venv/conda setup:
+python3 -m venv ~/.venvs/galmorph-rvs4 && source ~/.venvs/galmorph-rvs4/bin/activate
+pip install -r requirements.txt
+
+# gem5 + McPAT: one-time, see TEST 3 below -- deactivate the environment
+# above first, gem5's build needs no pip packages and conda's bundled
+# libraries can conflict with it.
 ```
 
 ---
@@ -119,7 +126,9 @@ python3 scripts/make_d108_bins.py checkpoints/linear_d108_seed2_best.zip
 ## TEST 3 — Power & energy (gem5 + McPAT)
 
 One-time build of gem5 and McPAT (see `gem5-mcpat-pipeline/` — run with **conda
-deactivated**; gem5 needs system Python):
+deactivated**; gem5's build links against the apt packages from
+`01_install_deps.sh`, and conda's bundled copies of those same libraries have
+been found to conflict with it):
 
 ```bash
 cd gem5-mcpat-pipeline
@@ -142,8 +151,9 @@ REPO_DIR="$(cd .. && pwd)" ./scripts/run_both.sh     # runs RVV + scalar through
 python3 scripts/compare_report.py                     # prints the Area/Power table
 ```
 
-Energy per inference = Runtime-Dynamic power × execution time (each build paired
-with its own time; `simSeconds` is at the top of each `m5out-*/stats.txt`).
+`compare_report.py` now prints and saves Sim Exec Time and Energy/inference
+directly (Runtime-Dynamic power × `simSeconds` — gem5's simulated execution
+time, not host wall-clock time, so these numbers match across machines).
 
 **Get every number in one shot** (both architectures) with:
 
