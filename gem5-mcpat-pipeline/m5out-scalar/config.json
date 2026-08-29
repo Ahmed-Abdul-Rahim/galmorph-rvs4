@@ -2088,16 +2088,16 @@
                                 "name": "workload",
                                 "path": "board.processor.cores.core.workload",
                                 "cmd": [
-                                    "/home/ahsan/galmorph-rvs4-mcpat/build/bench-scalar"
+                                    "/home/ahsan/galmorph-rvs4/build/bench-scalar"
                                 ],
-                                "cwd": "/home/ahsan/galmorph-rvs4-mcpat/gem5-mcpat-pipeline",
+                                "cwd": "/home/ahsan/galmorph-rvs4/gem5-mcpat-pipeline",
                                 "drivers": [],
                                 "egid": 100,
                                 "env": [],
                                 "errout": "cerr",
                                 "euid": 100,
                                 "eventq_index": 0,
-                                "executable": "/home/ahsan/galmorph-rvs4-mcpat/build/bench-scalar",
+                                "executable": "/home/ahsan/galmorph-rvs4/build/bench-scalar",
                                 "gid": 100,
                                 "input": "cin",
                                 "kvmInSE": false,

@@ -1,0 +1,29 @@
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 25.1.0.1
+gem5 compiled Aug 23 2026 22:32:16
+gem5 started Aug 27 2026 15:39:46
+gem5 executing on WIN-6U9B73L1SJJ, pid 1344
+command line: /home/ahsan/gem5/build/RISCV/gem5.opt --outdir /tmp/u74_diag2 -c '
+from gem5.prebuilt.riscvmatched.riscvmatched_board import RISCVMatchedBoard
+from gem5.isas import ISA
+from gem5.resources.resource import BinaryResource
+from gem5.simulate.simulator import Simulator
+
+board = RISCVMatchedBoard(clk_freq='"'"'1.2GHz'"'"', l2_size='"'"'2MiB'"'"', is_fs=False)
+binary = BinaryResource(local_path='"'"'/home/ahsan/galmorph-rvs4-main/build/bench-scalar'"'"', architecture=ISA.RISCV)
+board.set_se_binary_workload(binary)
+print('"'"'>>> about to construct Simulator'"'"', flush=True)
+sim = Simulator(board=board)
+print('"'"'>>> Simulator constructed, about to call run()'"'"', flush=True)
+sim.run()
+print('"'"'>>> run() returned, exit cause:'"'"', sim.get_last_exit_event_cause(), flush=True)
+'
+
+>>> about to construct Simulator
+>>> Simulator constructed, about to call run()
+Global frequency set at 1000000000000 ticks per second
+mmap: Cannot allocate memory
+src/mem/physical.cc:247: fatal: Could not mmap 17179869184 bytes for range [0:0x400000000]!
+Memory Usage: 173332 KBytes

@@ -1,0 +1,58 @@
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 25.1.0.1
+gem5 compiled Aug 23 2026 22:32:16
+gem5 started Aug 28 2026 15:40:49
+gem5 executing on WIN-6U9B73L1SJJ, pid 1759
+command line: /home/ahsan/gem5/build/RISCV/gem5.opt --outdir /tmp/u74_diag3 diag_u74_lowmem.py --binary /home/ahsan/galmorph-rvs4-main/build/bench-scalar
+
+>>> STEP: argparse defined, about to parse
+>>> STEP: args parsed OK: binary=/home/ahsan/galmorph-rvs4-main/build/bench-scalar clk_freq=1.2GHz
+>>> STEP: importing gem5.components.boards.simple_board
+>>> STEP: importing gem5.components.memory
+>>> STEP: importing gem5.isas
+>>> STEP: importing gem5.resources.resource
+>>> STEP: importing gem5.simulate.simulator
+>>> STEP: importing U74Processor
+>>> STEP: U74Processor imported OK
+>>> STEP: importing RISCVMatchedCacheHierarchy (may legitimately not exist -- not fatal)
+>>> STEP: RISCVMatchedCacheHierarchy imported OK
+>>> STEP: constructing cache_hierarchy
+>>> STEP: cache_hierarchy constructed OK
+>>> STEP: constructing memory (SingleChannelDDR3_1600)
+>>> STEP: memory constructed OK
+>>> STEP: constructing U74Processor
+>>> STEP: U74Processor constructed OK
+>>> STEP: constructing SimpleBoard
+>>> STEP: SimpleBoard constructed OK
+>>> STEP: constructing BinaryResource
+>>> STEP: BinaryResource constructed OK
+>>> STEP: calling board.set_se_binary_workload(binary)
+>>> STEP: set_se_binary_workload OK
+>>> STEP: constructing Simulator(board=board)
+>>> STEP: Simulator constructed OK
+>>> STEP: calling simulator.run() -- this is where the mmap crash happened last time
+Global frequency set at 1000000000000 ticks per second
+src/arch/riscv/linux/se_workload.cc:73: warn: Unknown operating system; assuming Linux.
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideMaskLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideMaskStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStridedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStridedStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdIndexedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdIndexedStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdWholeRegisterLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdWholeRegisterStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideFaultOnlyFirstLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideSegmentedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideSegmentedStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideSegmentedFaultOnlyFirstLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStrideSegmentedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStrideSegmentedStore
+board.remote_gdb: Listening for connections on port 7000
+src/arch/riscv/process.cc:125: fatal: fatal condition isa->rvType() != RV32 occurred: RISC V CPU should run in 32 bits mode
+Memory Usage: 8581892 KBytes

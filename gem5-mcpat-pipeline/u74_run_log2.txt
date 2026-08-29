@@ -1,0 +1,22 @@
+== Running scalar build on U74 (RISCVMatchedBoard) ==
+   Real SiFive FU740 model -- 8-stage dual-issue in-order, 32KiB L1I/D.
+   This is the one architecture in this comparison with a documented
+   real-silicon pedigree (see the deep-review doc), and the only one
+   where you are NOT free to pick clk-freq/l1i/l1d -- they're fixed
+   to match the real chip.
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 25.1.0.1
+gem5 compiled Aug 23 2026 22:32:16
+gem5 started Aug 27 2026 00:35:22
+gem5 executing on WIN-6U9B73L1SJJ, pid 5911
+command line: /home/ahsan/gem5/build/RISCV/gem5.opt --outdir /home/ahsan/galmorph-rvs4/gem5-mcpat-pipeline/m5out-scalar-u74 --remote-gdb-port 0 /home/ahsan/galmorph-rvs4/gem5-mcpat-pipeline/configs/se_config_u74.py --binary /home/ahsan/galmorph-rvs4-main/build/bench-scalar --clk-freq 1.2GHz
+
+
+FAILED: /home/ahsan/galmorph-rvs4/gem5-mcpat-pipeline/m5out-scalar-u74/stats.txt is missing or empty, even though gem5 exited without
+an error status. This usually means se_config_u74.py raised a Python
+exception before Root.instantiate() -- check for a traceback ABOVE
+this message (easy to miss if your terminal scrolled past it), and
+confirm config.json/config.ini also exist in that directory (if
+they don't either, the board never got instantiated at all).

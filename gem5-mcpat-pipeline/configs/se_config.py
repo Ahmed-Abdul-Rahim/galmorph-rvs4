@@ -34,7 +34,7 @@ Notes on the choices below
 
 import argparse
 
-from m5.objects import RiscvMinorCPU, RiscvTimingSimpleCPU, RiscvAtomicSimpleCPU
+from m5.objects import RiscvMinorCPU, RiscvTimingSimpleCPU, RiscvAtomicSimpleCPU, RiscvO3CPU
 
 from gem5.components.boards.simple_board import SimpleBoard
 from gem5.components.cachehierarchies.classic.private_l1_cache_hierarchy import (
@@ -47,10 +47,16 @@ from gem5.isas import ISA
 from gem5.resources.resource import BinaryResource
 from gem5.simulate.simulator import Simulator
 
+# "o3" added here -- RiscvO3CPU, gem5's out-of-order model, third leg of
+# the minor/o3/u74 architecture comparison. Its width/ROB/LSQ sizing are
+# gem5's own O3CPU defaults, not tuned to any real chip -- see
+# scripts/run_o3.sh for how to check your gem5 version's actual defaults
+# before trusting template_ooo_riscv.xml's numbers.
 CPU_CLASSES = {
     "minor": RiscvMinorCPU,
     "timing": RiscvTimingSimpleCPU,
     "atomic": RiscvAtomicSimpleCPU,
+    "o3": RiscvO3CPU,
 }
 
 

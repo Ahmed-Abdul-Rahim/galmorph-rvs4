@@ -56,9 +56,9 @@
     <param name="physical_address_width" value="32"/>
     <param name="virtual_memory_page_size" value="4096"/>
     <!-- GEM5: high confidence -->
-    <stat name="total_cycles" value="51334187"/>
+    <stat name="total_cycles" value="150631078"/>
     <stat name="idle_cycles" value="0"/>
-    <stat name="busy_cycles" value="51334187"/>
+    <stat name="busy_cycles" value="150631078"/>
 
     <component id="system.core0" name="core0">
       <param name="clock_rate" value="100"/>
@@ -113,46 +113,46 @@
       <param name="peak_issue_width" value="1"/>
 
       <!-- GEM5: total instructions committed, high confidence -->
-      <stat name="total_instructions" value="33052461"/>
+      <stat name="total_instructions" value="119839781"/>
       <!-- GEM5: check via find_stats.sh; falls back to a static int/fp split if not found -->
-      <stat name="int_instructions" value="16526230.500000"/>
-      <stat name="fp_instructions" value="16526230.500000"/>
-      <stat name="branch_instructions" value="3688372"/>
-      <stat name="branch_mispredictions" value="375387"/>
-      <stat name="load_instructions" value="7512142"/>
-      <stat name="store_instructions" value="1914183"/>
-      <stat name="committed_instructions" value="33052461"/>
-      <stat name="committed_int_instructions" value="16526230.500000"/>
-      <stat name="committed_fp_instructions" value="16526230.500000"/>
+      <stat name="int_instructions" value="59919890.500000"/>
+      <stat name="fp_instructions" value="59919890.500000"/>
+      <stat name="branch_instructions" value="6923076"/>
+      <stat name="branch_mispredictions" value="154029"/>
+      <stat name="load_instructions" value="31537555"/>
+      <stat name="store_instructions" value="9461779"/>
+      <stat name="committed_instructions" value="119839781"/>
+      <stat name="committed_int_instructions" value="59919890.500000"/>
+      <stat name="committed_fp_instructions" value="59919890.500000"/>
       <stat name="pipeline_duty_cycle" value="1"/>
-      <stat name="total_cycles" value="51334187"/>
+      <stat name="total_cycles" value="150631078"/>
       <stat name="idle_cycles" value="0"/>
-      <stat name="busy_cycles" value="51334187"/>
+      <stat name="busy_cycles" value="150631078"/>
       <stat name="ROB_reads" value="0"/>
       <stat name="ROB_writes" value="0"/>
       <stat name="rename_reads" value="0"/>
       <stat name="rename_writes" value="0"/>
       <stat name="fp_rename_reads" value="0"/>
       <stat name="fp_rename_writes" value="0"/>
-      <stat name="inst_window_reads" value="33052461"/>
-      <stat name="inst_window_writes" value="33052461"/>
-      <stat name="inst_window_wakeup_accesses" value="33052461"/>
-      <stat name="fp_inst_window_reads" value="16526230.500000"/>
-      <stat name="fp_inst_window_writes" value="16526230.500000"/>
-      <stat name="fp_inst_window_wakeup_accesses" value="16526230.500000"/>
+      <stat name="inst_window_reads" value="119839781"/>
+      <stat name="inst_window_writes" value="119839781"/>
+      <stat name="inst_window_wakeup_accesses" value="119839781"/>
+      <stat name="fp_inst_window_reads" value="59919890.500000"/>
+      <stat name="fp_inst_window_writes" value="59919890.500000"/>
+      <stat name="fp_inst_window_wakeup_accesses" value="59919890.500000"/>
       <!-- STATIC ASSUMPTION: 2 reads + 1 write per int instruction, a common McPAT rule of thumb -->
-      <stat name="int_regfile_reads" value="33052461"/>
-      <stat name="int_regfile_writes" value="16526230.500000"/>
-      <stat name="float_regfile_reads" value="33052461"/>
-      <stat name="float_regfile_writes" value="16526230.500000"/>
+      <stat name="int_regfile_reads" value="119839781"/>
+      <stat name="int_regfile_writes" value="59919890.500000"/>
+      <stat name="float_regfile_reads" value="119839781"/>
+      <stat name="float_regfile_writes" value="59919890.500000"/>
       <stat name="function_calls" value="0"/>
       <stat name="context_switches" value="0"/>
-      <stat name="ialu_accesses" value="16526230.500000"/>
-      <stat name="fpu_accesses" value="16526230.500000"/>
+      <stat name="ialu_accesses" value="59919890.500000"/>
+      <stat name="fpu_accesses" value="59919890.500000"/>
       <stat name="mul_accesses" value="0"/>
-      <stat name="cdb_alu_accesses" value="16526230.500000"/>
+      <stat name="cdb_alu_accesses" value="59919890.500000"/>
       <stat name="cdb_mul_accesses" value="0"/>
-      <stat name="cdb_fpu_accesses" value="16526230.500000"/>
+      <stat name="cdb_fpu_accesses" value="59919890.500000"/>
 
       <component id="system.core0.predictor" name="PBT">
         <!-- STATIC ASSUMPTION: small embedded branch predictor -->
@@ -162,13 +162,13 @@
         <param name="global_predictor_bits" value="2"/>
         <param name="chooser_predictor_entries" value="0"/>
         <param name="chooser_predictor_bits" value="2"/>
-        <stat name="predictor_accesses" value="3688372"/>
+        <stat name="predictor_accesses" value="6923076"/>
       </component>
 
       <component id="system.core0.itlb" name="itlb">
         <!-- STATIC ASSUMPTION: small embedded ITLB -->
         <param name="number_entries" value="16"/>
-        <stat name="total_accesses" value="33052461"/>
+        <stat name="total_accesses" value="119839781"/>
         <stat name="total_misses" value="0"/>
         <stat name="conflicts" value="0"/>
       </component>
@@ -178,7 +178,7 @@
         <!-- GEM5: size matches the l1i flag passed to se_config.py (bytes) -->
         <param name="icache_config" value="16384,32,2,1,1,3,32,0"/>
         <param name="buffer_sizes" value="4,4,4,0"/>
-        <stat name="read_accesses" value="11940333"/>
+        <stat name="read_accesses" value="25118249"/>
         <stat name="read_misses" value="143"/>
         <stat name="conflicts" value="0"/>
       </component>
@@ -186,7 +186,7 @@
       <component id="system.core0.dtlb" name="dtlb">
         <!-- STATIC ASSUMPTION: small embedded DTLB -->
         <param name="number_entries" value="16"/>
-        <stat name="total_accesses" value="9426325"/>
+        <stat name="total_accesses" value="40999334"/>
         <stat name="total_misses" value="0"/>
         <stat name="conflicts" value="0"/>
       </component>
@@ -195,18 +195,18 @@
         <!-- GEM5: size matches the l1d flag passed to se_config.py (bytes) -->
         <param name="dcache_config" value="16384,32,2,1,1,3,32,0"/>
         <param name="buffer_sizes" value="4,4,4,4"/>
-        <stat name="read_accesses" value="7512142"/>
-        <stat name="write_accesses" value="1914183"/>
-        <stat name="read_misses" value="36293"/>
-        <stat name="write_misses" value="28864"/>
+        <stat name="read_accesses" value="31537555"/>
+        <stat name="write_accesses" value="9461779"/>
+        <stat name="read_misses" value="36204"/>
+        <stat name="write_misses" value="28900"/>
         <stat name="conflicts" value="0"/>
       </component>
 
       <component id="system.core0.BTB" name="BTB">
         <!-- STATIC ASSUMPTION: small embedded BTB -->
         <param name="BTB_config" value="1024,4,2,1,1,3"/>
-        <stat name="read_accesses" value="3688372"/>
-        <stat name="write_accesses" value="375387"/>
+        <stat name="read_accesses" value="6923076"/>
+        <stat name="write_accesses" value="154029"/>
       </component>
     </component>
     <component id="system.L20" name="L20">

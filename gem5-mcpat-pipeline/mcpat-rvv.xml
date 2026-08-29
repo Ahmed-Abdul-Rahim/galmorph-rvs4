@@ -56,9 +56,9 @@
     <param name="physical_address_width" value="32"/>
     <param name="virtual_memory_page_size" value="4096"/>
     <!-- GEM5: high confidence -->
-    <stat name="total_cycles" value="28457406"/>
+    <stat name="total_cycles" value="28562772"/>
     <stat name="idle_cycles" value="0"/>
-    <stat name="busy_cycles" value="28457406"/>
+    <stat name="busy_cycles" value="28562772"/>
 
     <component id="system.core0" name="core0">
       <param name="clock_rate" value="100"/>
@@ -119,15 +119,15 @@
       <stat name="fp_instructions" value="9931180.500000"/>
       <stat name="branch_instructions" value="1511404"/>
       <stat name="branch_mispredictions" value="1774"/>
-      <stat name="load_instructions" value="6810418"/>
-      <stat name="store_instructions" value="2166239"/>
+      <stat name="load_instructions" value="6810415"/>
+      <stat name="store_instructions" value="2249184"/>
       <stat name="committed_instructions" value="19862361"/>
       <stat name="committed_int_instructions" value="9931180.500000"/>
       <stat name="committed_fp_instructions" value="9931180.500000"/>
       <stat name="pipeline_duty_cycle" value="1"/>
-      <stat name="total_cycles" value="28457406"/>
+      <stat name="total_cycles" value="28562772"/>
       <stat name="idle_cycles" value="0"/>
-      <stat name="busy_cycles" value="28457406"/>
+      <stat name="busy_cycles" value="28562772"/>
       <stat name="ROB_reads" value="0"/>
       <stat name="ROB_writes" value="0"/>
       <stat name="rename_reads" value="0"/>
@@ -178,7 +178,7 @@
         <!-- GEM5: size matches the l1i flag passed to se_config.py (bytes) -->
         <param name="icache_config" value="16384,32,2,1,1,3,32,0"/>
         <param name="buffer_sizes" value="4,4,4,0"/>
-        <stat name="read_accesses" value="4321318"/>
+        <stat name="read_accesses" value="4321308"/>
         <stat name="read_misses" value="137"/>
         <stat name="conflicts" value="0"/>
       </component>
@@ -186,7 +186,7 @@
       <component id="system.core0.dtlb" name="dtlb">
         <!-- STATIC ASSUMPTION: small embedded DTLB -->
         <param name="number_entries" value="16"/>
-        <stat name="total_accesses" value="8976657"/>
+        <stat name="total_accesses" value="9059599"/>
         <stat name="total_misses" value="0"/>
         <stat name="conflicts" value="0"/>
       </component>
@@ -195,9 +195,9 @@
         <!-- GEM5: size matches the l1d flag passed to se_config.py (bytes) -->
         <param name="dcache_config" value="16384,32,2,1,1,3,32,0"/>
         <param name="buffer_sizes" value="4,4,4,4"/>
-        <stat name="read_accesses" value="6810418"/>
-        <stat name="write_accesses" value="2166239"/>
-        <stat name="read_misses" value="91472"/>
+        <stat name="read_accesses" value="6810415"/>
+        <stat name="write_accesses" value="2249184"/>
+        <stat name="read_misses" value="91460"/>
         <stat name="write_misses" value="84334"/>
         <stat name="conflicts" value="0"/>
       </component>

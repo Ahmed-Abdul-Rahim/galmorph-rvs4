@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  template_u74_riscv.xml
+
+  A McPAT 1.3 input file for the SiFive U74 core, as configured in the
+  real HiFive Unmatched board / FU740 SoC that gem5's own
+  RISCVMatchedBoard models (see configs/se_config_u74.py). Built from
+  template_inorder_riscv_dualissue.xml as a starting point, then every
+  param that has a real published number was replaced  -  marked
+  "REAL SPEC" below, with the source. Anything SiFive doesn't publish
+  is still marked "STATIC ASSUMPTION", same as your other templates  - 
+  this file does not pretend to know more than the public documentation
+  actually says.
+
+  Sources used (fetched and read directly, not recalled from memory):
+    - SiFive FU740-C000 Manual v1.2/v1.6 (fu740-c000-manual): confirms
+      "peak sustainable execution rate of two instructions per clock
+      cycle" for U74, and the board-level 32KB/32KB L1 I$/D$ with ECC.
+    - SiFive U74 Core Complex Manual: 2MB shared L2 for U74-MC config
+      (matches gem5's RISCVMatchedBoard l2_size default of "2MiB").
+    - Linley Group, "SiFive Raises RISC-V Performance" (2018): "The U74
+      and [Arm] A55 both have an in-order dual-issue pipeline with
+      eight stages"  -  confirms 8-stage depth.
+    - Multiple independent sources (CNX Software, muxup.com hardware
+      survey, Eminetra board teardown) corroborate FU740 is fabricated
+      on TSMC 28nm  -  SiFive's own product pages do not appear to state
+      the node explicitly, so this one is "commonly reported," not
+      "SiFive-confirmed," and is flagged as such below.
+
+  A genuinely useful thing this cross-check turned up: SiFive's
+  STANDALONE "U74 Core IP" datasheet (the generic, configurable IP
+  product, not the specific FU740 chip) lists a DIFFERENT default L1
+  config  -  16KiB 8-way each, not 32KiB. If you go looking at SiFive's
+  docs yourself, don't be surprised to see both numbers; this template
+  uses the FU740/HiFive-Unmatched-specific 32KiB figure because that's
+  the actual chip gem5's RISCVMatchedBoard models, not the generic IP
+  defaults.
+
+  Two params below are STILL assumptions despite everything else being
+  real: device_type and ALU_per_core (see their comments). Don't quote
+  those as "SiFive-published."
+-->
+<component id="root" name="root">
+  <component id="system" name="system">
+    <param name="number_of_cores" value="1"/>
+    <param name="number_of_L1Directories" value="0"/>
+    <param name="number_of_L2Directories" value="0"/>
+    <!-- REAL SPEC: FU740 has a real shared 2MB L2 (SiFive U74 Core -->
+    <!-- Complex Manual), matching gem5's RISCVMatchedBoard l2_size -->
+    <!-- default. The system.L20 component below is NOT that: it's a -->
+    <!-- small, mostly-idle stub, required to work around a McPAT 1.3 -->
+    <!-- parser quirk (see the comment on system.L20 itself), not sized -->
+    <!-- to represent the real 2MB L2. If modeling the real L2's power -->
+    <!-- and area matters for your report, replace system.L20's -->
+    <!-- L2_config and stats with real 2MB-L2 values instead of using it -->
+    <!-- only as a parser workaround. -->
+    <param name="number_of_L2s" value="1"/>
+    <param name="number_of_L3s" value="0"/>
+    <param name="number_of_NoCs" value="0"/>
+    <param name="homogeneous_cores" value="1"/>
+    <param name="homogeneous_L2s" value="1"/>
+    <param name="homogeneous_L1Directories" value="0"/>
+    <param name="homogeneous_L2Directories" value="0"/>
+    <param name="homogeneous_L3s" value="0"/>
+    <param name="homogeneous_ccs" value="1"/>
+    <param name="homogeneous_NoCs" value="0"/>
+    <!-- REAL SPEC (commonly reported, not a SiFive product-page number): -->
+    <!-- FU740 fabricated on TSMC 28nm, per CNX Software / muxup.com / -->
+    <!-- Eminetra, cross-checked across three independent sources. -->
+    <param name="core_tech_node" value="28"/>
+    <!-- GEM5: matches the clk freq flag passed to se_config_u74.py, in MHz. -->
+    <!-- REAL SPEC: pass the clk-freq flag as 1200MHz when converting this run - -->
+    <!-- 1.2GHz is gem5's own RISCVMatchedBoard class default, which the -->
+    <!-- gem5 team set from their UC Davis board measurements. The -->
+    <!-- physical board's exact shipping frequency isn't officially -->
+    <!-- disclosed by SiFive; 1.2GHz is gem5's own stated figure, use it -->
+    <!-- for consistency with what actually got simulated. -->
+    <param name="target_core_clockrate" value="GEM5:clk_freq_mhz"/>
+    <!-- STATIC ASSUMPTION: no public junction/ambient temperature spec -->
+    <!-- found for FU740; kept at McPAT's own default. -->
+    <param name="temperature" value="340"/>
+    <param name="number_cache_levels" value="2"/>
+    <param name="interconnect_projection_type" value="0"/>
+    <!-- device_type: 0 high performance, 1 low standby power, 2 low -->
+    <!-- operating power. STILL AN ASSUMPTION: SiFive doesn't publish -->
+    <!-- an ITRS device-type classification. Set to 2 (LOP) here because -->
+    <!-- that's what Endo et al. (RAPIDO 2015) used for the closest real -->
+    <!-- comparable part I found  -  a Linux-capable, efficiency-focused -->
+    <!-- ARM Cortex-A application core (see the deep-review doc)  -  not -->
+    <!-- because SiFive said so. Change to 0 if you'd rather model U74 -->
+    <!-- as a high-performance part; note whichever you pick in your report. -->
+    <param name="device_type" value="2"/>
+    <param name="longer_channel_device" value="1"/>
+    <param name="power_gating" value="0"/>
+    <!-- REAL SPEC: U74 is a 64-bit core (RV64GC), unlike your invented -->
+    <!-- 32-bit target. This is a genuine, deliberate difference between -->
+    <!-- this comparison point and your other two  -  not a bug. -->
+    <param name="machine_bits" value="64"/>
+    <param name="virtual_address_width" value="39"/>
+    <param name="physical_address_width" value="38"/>
+    <param name="virtual_memory_page_size" value="4096"/>
+    <!-- GEM5: high confidence -->
+    <stat name="total_cycles" value="GEM5:total_cycles"/>
+    <stat name="idle_cycles" value="GEM5:idle_cycles"/>
+    <stat name="busy_cycles" value="GEM5:busy_cycles"/>
+
+    <component id="system.core0" name="core0">
+      <param name="clock_rate" value="GEM5:clk_freq_mhz"/>
+      <param name="opt_local" value="0"/>
+      <param name="instruction_length" value="32"/>
+      <param name="opcode_width" value="7"/>
+      <param name="x86" value="0"/>
+      <param name="micro_opcode_width" value="8"/>
+      <!-- machine_type: 1 = in-order. U74 is in-order (confirmed, both -->
+      <!-- SiFive manuals and Linley report agree). -->
+      <param name="machine_type" value="1"/>
+      <param name="number_hardware_threads" value="1"/>
+      <!-- REAL SPEC: FU740-C000 Owner's Manual, verbatim: "a high- -->
+      <!-- performance dual-issue in-order execution pipeline, with a -->
+      <!-- peak sustainable execution rate of two instructions per -->
+      <!-- clock cycle." -->
+      <param name="fetch_width" value="2"/>
+      <param name="number_instruction_fetch_ports" value="2"/>
+      <param name="decode_width" value="2"/>
+      <param name="issue_width" value="2"/>
+      <param name="peak_issue_width" value="2"/>
+      <param name="commit_width" value="2"/>
+      <param name="fp_issue_width" value="1"/>
+      <param name="prediction_width" value="1"/>
+      <!-- REAL SPEC: Linley Group, "SiFive Raises RISC-V Performance" -->
+      <!-- (2018): U74 has an 8-stage pipeline (same depth class the -->
+      <!-- article compares directly to Arm Cortex-A55). -->
+      <param name="pipeline_depth" value="8,8"/>
+      <!-- STATIC ASSUMPTION (not SiFive-published): dual-issue in-order -->
+      <!-- cores in this class typically carry 2 simple ALUs to sustain -->
+      <!-- 2-wide issue, but SiFive does not publish an execution-unit -->
+      <!-- count for U74. Treat this line as inferred, not confirmed. -->
+      <param name="ALU_per_core" value="2"/>
+      <param name="MUL_per_core" value="1"/>
+      <param name="FPU_per_core" value="1"/>
+      <param name="instruction_buffer_size" value="8"/>
+      <param name="decoded_stream_buffer_size" value="8"/>
+      <param name="instruction_window_scheme" value="0"/>
+      <param name="instruction_window_size" value="8"/>
+      <param name="fp_instruction_window_size" value="4"/>
+      <!-- ROB_size 0: in-order core, no reorder buffer. -->
+      <param name="ROB_size" value="0"/>
+      <param name="archi_Regs_IRF_size" value="32"/>
+      <param name="archi_Regs_FRF_size" value="32"/>
+      <param name="phy_Regs_IRF_size" value="32"/>
+      <param name="phy_Regs_FRF_size" value="32"/>
+      <param name="rename_scheme" value="0"/>
+      <param name="register_windows_size" value="0"/>
+      <param name="LSU_order" value="inorder"/>
+      <param name="store_buffer_size" value="4"/>
+      <param name="load_buffer_size" value="4"/>
+      <param name="memory_ports" value="1"/>
+      <param name="RAS_size" value="4"/>
+      <param name="fetch_throughput" value="2"/>
+
+      <!-- GEM5: total instructions committed, high confidence -->
+      <stat name="total_instructions" value="GEM5:total_instructions"/>
+      <stat name="int_instructions" value="GEM5:int_instructions"/>
+      <stat name="fp_instructions" value="GEM5:fp_instructions"/>
+      <stat name="branch_instructions" value="GEM5:branch_instructions"/>
+      <stat name="branch_mispredictions" value="GEM5:branch_mispredictions"/>
+      <stat name="load_instructions" value="GEM5:load_instructions"/>
+      <stat name="store_instructions" value="GEM5:store_instructions"/>
+      <stat name="committed_instructions" value="GEM5:total_instructions"/>
+      <stat name="committed_int_instructions" value="GEM5:int_instructions"/>
+      <stat name="committed_fp_instructions" value="GEM5:fp_instructions"/>
+      <stat name="pipeline_duty_cycle" value="1"/>
+      <stat name="total_cycles" value="GEM5:total_cycles"/>
+      <stat name="idle_cycles" value="GEM5:idle_cycles"/>
+      <stat name="busy_cycles" value="GEM5:busy_cycles"/>
+      <stat name="ROB_reads" value="0"/>
+      <stat name="ROB_writes" value="0"/>
+      <stat name="rename_reads" value="0"/>
+      <stat name="rename_writes" value="0"/>
+      <stat name="fp_rename_reads" value="0"/>
+      <stat name="fp_rename_writes" value="0"/>
+      <stat name="inst_window_reads" value="GEM5:total_instructions"/>
+      <stat name="inst_window_writes" value="GEM5:total_instructions"/>
+      <stat name="inst_window_wakeup_accesses" value="GEM5:total_instructions"/>
+      <stat name="fp_inst_window_reads" value="GEM5:fp_instructions"/>
+      <stat name="fp_inst_window_writes" value="GEM5:fp_instructions"/>
+      <stat name="fp_inst_window_wakeup_accesses" value="GEM5:fp_instructions"/>
+      <stat name="int_regfile_reads" value="GEM5:int_regfile_reads"/>
+      <stat name="int_regfile_writes" value="GEM5:int_regfile_writes"/>
+      <stat name="float_regfile_reads" value="GEM5:float_regfile_reads"/>
+      <stat name="float_regfile_writes" value="GEM5:float_regfile_writes"/>
+      <stat name="function_calls" value="0"/>
+      <stat name="context_switches" value="0"/>
+      <stat name="ialu_accesses" value="GEM5:int_instructions"/>
+      <stat name="fpu_accesses" value="GEM5:fp_instructions"/>
+      <stat name="mul_accesses" value="0"/>
+      <stat name="cdb_alu_accesses" value="GEM5:int_instructions"/>
+      <stat name="cdb_mul_accesses" value="0"/>
+      <stat name="cdb_fpu_accesses" value="GEM5:fp_instructions"/>
+
+      <component id="system.core0.predictor" name="PBT">
+        <!-- STATIC ASSUMPTION: SiFive's U74 manual describes the BHT as -->
+        <!-- "a correlating predictor that supports long branch -->
+        <!-- histories" but does not publish exact table sizes. Kept at -->
+        <!-- the same values as your other templates  -  do not read -->
+        <!-- these two entries as SiFive-confirmed. -->
+        <param name="local_predictor_size" value="10,3"/>
+        <param name="local_predictor_entries" value="1024"/>
+        <param name="global_predictor_entries" value="0"/>
+        <param name="global_predictor_bits" value="2"/>
+        <param name="chooser_predictor_entries" value="0"/>
+        <param name="chooser_predictor_bits" value="2"/>
+        <stat name="predictor_accesses" value="GEM5:branch_instructions"/>
+      </component>
+
+      <component id="system.core0.itlb" name="itlb">
+        <!-- STATIC ASSUMPTION: SiFive publishes TLB *behavior* (Sv39, -->
+        <!-- 8 PMP regions) but not ITLB entry count for U74. Kept as -->
+        <!-- the same placeholder as your other templates. -->
+        <param name="number_entries" value="16"/>
+        <stat name="total_accesses" value="GEM5:total_instructions"/>
+        <stat name="total_misses" value="0"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.icache" name="icache">
+        <!-- icache_config: size(B),block_width(B),associativity,bank,throughput,latency,output_width,cache_policy -->
+        <!-- REAL SPEC: pass the l1i flag as 32KiB when converting this run - -->
+        <!-- FU740-C000 Owner's Manual: 32KB L1 instruction cache with -->
+        <!-- ECC (this is the FU740/board-level number; SiFive's generic -->
+        <!-- standalone "U74 Core IP" datasheet instead lists a 16KiB -->
+        <!-- default  -  see the file header note on this discrepancy). -->
+        <!-- Line size 64B per the U74 manual ("cache line fill triggers -->
+        <!-- a burst access"), used in place of the 32B placeholder your -->
+        <!-- other templates use. Associativity at 32KiB not confirmed -->
+        <!-- in public docs; carried over from the 16KiB IP default (8-way). -->
+        <param name="icache_config" value="GEM5:l1i_bytes,64,8,1,1,3,32,0"/>
+        <param name="buffer_sizes" value="4,4,4,0"/>
+        <stat name="read_accesses" value="GEM5:icache_accesses"/>
+        <stat name="read_misses" value="GEM5:icache_misses"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.dtlb" name="dtlb">
+        <!-- STATIC ASSUMPTION: same caveat as itlb above. -->
+        <param name="number_entries" value="16"/>
+        <stat name="total_accesses" value="GEM5:dcache_accesses"/>
+        <stat name="total_misses" value="0"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.dcache" name="dcache">
+        <!-- REAL SPEC: pass the l1d flag as 32KiB when converting this run - -->
+        <!-- FU740-C000 Owner's Manual: 32KB L1 data cache with ECC. -->
+        <!-- Same line-size/associativity caveat as icache above. -->
+        <param name="dcache_config" value="GEM5:l1d_bytes,64,8,1,1,3,32,0"/>
+        <param name="buffer_sizes" value="4,4,4,4"/>
+        <stat name="read_accesses" value="GEM5:load_instructions"/>
+        <stat name="write_accesses" value="GEM5:store_instructions"/>
+        <stat name="read_misses" value="GEM5:dcache_read_misses"/>
+        <stat name="write_misses" value="GEM5:dcache_write_misses"/>
+        <stat name="conflicts" value="0"/>
+      </component>
+
+      <component id="system.core0.BTB" name="BTB">
+        <!-- STATIC ASSUMPTION: BTB behavior is documented qualitatively -->
+        <!-- (U74 manual: "one-cycle latency... direct jumps that miss -->
+        <!-- in the BTB result in a one-cycle fetch bubble") but no entry -->
+        <!-- count is published. Kept at the same placeholder as your -->
+        <!-- other templates. -->
+        <param name="BTB_config" value="1024,4,2,1,1,3"/>
+        <stat name="read_accesses" value="GEM5:branch_instructions"/>
+        <stat name="write_accesses" value="GEM5:branch_mispredictions"/>
+      </component>
+    </component>
+    <component id="system.L20" name="L20">
+      <!-- McPAT's parser walks system's children by POSITION, not by
+           name. With 1 core and zero L2/L3/NoC/directories, its
+           position counter never moves off 0, so it re-reads
+           system.core0 when it goes looking for system.mc next,
+           which is the "number_of_cores/.../NoCs is/are not correct"
+           error. There is no XML-only way to skip this; one small,
+           mostly-idle L2 is the standard workaround. It does add a
+           small, real amount of area/leakage to the total, not
+           exactly zero: check this component's own line in the
+           print_level 5 output if you want a strictly core-only
+           number. -->
+      <param name="L2_config" value="2048,32,1,1,1,3,32,0"/>
+      <param name="clockrate" value="GEM5:clk_freq_mhz"/>
+      <param name="vdd" value="0"/>
+      <param name="merged_dir" value="0"/>
+      <param name="ports" value="1,1,1"/>
+      <param name="device_type" value="0"/>
+      <param name="threeD_stack" value="0"/>
+      <param name="buffer_sizes" value="1,1,1,1"/>
+      <stat name="total_accesses" value="1"/>
+      <stat name="read_accesses" value="1"/>
+      <stat name="write_accesses" value="0"/>
+      <stat name="total_hits" value="1"/>
+      <stat name="total_misses" value="0"/>
+      <stat name="read_hits" value="1"/>
+      <stat name="write_hits" value="0"/>
+      <stat name="read_misses" value="0"/>
+      <stat name="write_misses" value="0"/>
+      <stat name="replacements" value="0"/>
+      <stat name="write_backs" value="0"/>
+      <stat name="miss_buffer_accesses" value="0"/>
+      <stat name="fill_buffer_accesses" value="0"/>
+      <stat name="prefetch_buffer_accesses" value="0"/>
+      <stat name="prefetch_buffer_writes" value="0"/>
+      <stat name="prefetch_buffer_reads" value="0"/>
+      <stat name="wbb_writes" value="0"/>
+      <stat name="wbb_reads" value="0"/>
+      <stat name="conflicts" value="0"/>
+      <stat name="duty_cycle" value="0.0001"/>
+    </component>
+    <component id="system.mc" name="mc">
+      <param name="type" value="0"/>
+      <param name="mc_clock" value="200"/>
+      <param name="vdd" value="0"/>
+      <param name="peak_transfer_rate" value="3200"/>
+      <param name="block_size" value="64"/>
+      <param name="number_mcs" value="0"/>
+      <param name="memory_channels_per_mc" value="1"/>
+      <param name="number_ranks" value="2"/>
+      <param name="withPHY" value="0"/>
+      <param name="req_window_size_per_channel" value="32"/>
+      <param name="IO_buffer_size_per_channel" value="32"/>
+      <param name="databus_width" value="128"/>
+      <param name="addressbus_width" value="51"/>
+      <stat name="memory_accesses" value="0"/>
+      <stat name="memory_reads" value="0"/>
+      <stat name="memory_writes" value="0"/>
+    </component>
+
+    <component id="system.niu" name="niu">
+      <param name="type" value="0"/>
+      <param name="clockrate" value="350"/>
+      <param name="vdd" value="0"/>
+      <param name="number_units" value="0"/>
+      <stat name="duty_cycle" value="1.0"/>
+      <stat name="total_load_perc" value="0.7"/>
+    </component>
+
+    <component id="system.pcie" name="pcie">
+      <param name="type" value="0"/>
+      <param name="withPHY" value="1"/>
+      <param name="clockrate" value="350"/>
+      <param name="vdd" value="0"/>
+      <param name="number_units" value="0"/>
+      <param name="num_channels" value="8"/>
+      <stat name="duty_cycle" value="1.0"/>
+      <stat name="total_load_perc" value="0.7"/>
+    </component>
+
+    <component id="system.flashc" name="flashc">
+      <param name="number_flashcs" value="0"/>
+      <param name="type" value="1"/>
+      <param name="vdd" value="0"/>
+      <param name="withPHY" value="1"/>
+      <param name="peak_transfer_rate" value="200"/>
+      <stat name="duty_cycle" value="1.0"/>
+      <stat name="total_load_perc" value="0.7"/>
+    </component>
+
+  </component>
+</component>

@@ -53,6 +53,67 @@ STAT_MAP = {
     "icache_misses":        {"confidence": "soft", "keys": ["system.cpu.icache.overallMisses::total", "system.cpu.icache.ReadReq.misses::total", "board.cache_hierarchy.l1icaches.overallMisses::total"]},
     "dcache_read_misses":   {"confidence": "soft", "keys": ["system.cpu.dcache.ReadReq.misses::total", "board.cache_hierarchy.l1dcaches.ReadReq.misses::total"]},
     "dcache_write_misses":  {"confidence": "soft", "keys": ["system.cpu.dcache.WriteReq.misses::total", "board.cache_hierarchy.l1dcaches.WriteReq.misses::total"]},
+
+    # confidence: soft, OoO-ONLY -- only meaningful for RiscvO3CPU runs
+    # (template_ooo_riscv.xml). An in-order run (minor/timing/atomic) has
+    # none of these structures, so these entries are simply never
+    # resolved when using template_inorder_riscv.xml or
+    # template_u74_riscv.xml (gem5_to_mcpat.py only resolves a GEM5:<key>
+    # if the chosen --template actually references it).
+    #
+    # "board.processor.cores.core.*" is this repo's CONFIRMED real prefix
+    # (checked directly against a real stats.txt from this pipeline's own
+    # stdlib SimpleBoard setup -- "system.cpu.*" does not appear anywhere
+    # in it). The rob/rename/iq sub-paths below follow the same nesting
+    # pattern real entries like board.processor.cores.core.branchPred.*
+    # and board.processor.cores.core.commitStats0.* already use, so
+    # "board.processor.cores.core.rob.*" etc. is an informed inference
+    # from a confirmed pattern, not a blind guess -- but it has NOT been
+    # checked against a real O3 stats.txt (no O3 run existed yet when
+    # this was written). "system.cpu.rob.*" etc. are kept as a second
+    # candidate per key in case your gem5 version's O3CPU stats differ
+    # from the stdlib-wrapped naming the rest of this file already
+    # confirmed. RUN scripts/find_stats.sh ON YOUR REAL O3 stats.txt
+    # (its "OoO:" sections are built for exactly this) and fix any entry
+    # that does not match before trusting the O3 McPAT output.
+    "rob_reads":            {"confidence": "soft", "keys": ["board.processor.cores.core.rob.reads", "system.cpu.rob.reads", "system.cpu.commit.rob_reads"]},
+    "rob_writes":           {"confidence": "soft", "keys": ["board.processor.cores.core.rob.writes", "system.cpu.rob.writes", "system.cpu.commit.rob_writes"]},
+    "rename_reads":         {"confidence": "soft", "keys": ["board.processor.cores.core.rename.intLookups", "board.processor.cores.core.rename.int_rename_lookups", "system.cpu.rename.int_rename_lookups"]},
+    "rename_writes":        {"confidence": "soft", "keys": ["board.processor.cores.core.rename.renamedOperands", "board.processor.cores.core.rename.RenamedOperands", "system.cpu.rename.RenamedOperands"]},
+    "fp_rename_reads":      {"confidence": "soft", "keys": ["board.processor.cores.core.rename.fpLookups", "board.processor.cores.core.rename.fp_rename_lookups", "system.cpu.rename.fp_rename_lookups"]},
+    # NOTE: no real gem5 stat cleanly maps to "fp-specific rename writes" --
+    # renamedInsts is a TOTAL (int+fp+vec) count of instructions processed
+    # by rename, not an fp-only writes count. This is the roughest proxy
+    # in this whole block; treat McPAT's fp_rename_writes-derived numbers
+    # as the least trustworthy of the rename-stage stats.
+    "fp_rename_writes":     {"confidence": "soft", "keys": ["board.processor.cores.core.rename.renamedInsts", "board.processor.cores.core.rename.RenamedInsts", "system.cpu.rename.RenamedInsts"]},
+    "iq_reads":             {"confidence": "soft", "keys": ["board.processor.cores.core.intInstQueueReads", "board.processor.cores.core.iq.int_inst_queue_reads", "system.cpu.iq.int_inst_queue_reads"]},
+    "iq_writes":            {"confidence": "soft", "keys": ["board.processor.cores.core.intInstQueueWrites", "board.processor.cores.core.iq.int_inst_queue_writes", "system.cpu.iq.int_inst_queue_writes"]},
+    "iq_wakeups":           {"confidence": "soft", "keys": ["board.processor.cores.core.intInstQueueWakeupAccesses", "board.processor.cores.core.iq.int_inst_queue_wakeup_accesses", "system.cpu.iq.int_inst_queue_wakeup_accesses"]},
+    "fp_iq_reads":          {"confidence": "soft", "keys": ["board.processor.cores.core.fpInstQueueReads", "board.processor.cores.core.iq.fp_inst_queue_reads", "system.cpu.iq.fp_inst_queue_reads"]},
+    "fp_iq_writes":         {"confidence": "soft", "keys": ["board.processor.cores.core.fpInstQueueWrites", "board.processor.cores.core.iq.fp_inst_queue_writes", "system.cpu.iq.fp_inst_queue_writes"]},
+    "fp_iq_wakeups":        {"confidence": "soft", "keys": ["board.processor.cores.core.fpInstQueueWakeupAccesses", "board.processor.cores.core.iq.fp_inst_queue_wakeup_accesses", "system.cpu.iq.fp_inst_queue_wakeup_accesses"]},
+
+    # NOT wired to any McPAT field, deliberately -- see the module docstring
+    # note added below. Kept here as a comment, not a live STAT_MAP entry,
+    # so it isn't silently dropped or forgotten:
+    #   board.processor.cores.core.rename.vecLookups          (44.18M in a real run)
+    #   board.processor.cores.core.vecInstQueueReads           (51.68M)
+    #   board.processor.cores.core.vecInstQueueWrites          (24.48M)
+    #   board.processor.cores.core.vecInstQueueWakeupAccesses  (24.48M)
+    # In a real RVV run on O3, vector rename lookups alone (44.18M) exceed
+    # int+fp rename lookups COMBINED (10.72M + 7.28M = 18.0M) by roughly
+    # 2.5x, and vector instruction-queue reads (51.68M) exceed int+fp
+    # combined (27.08M + 8.49M = 35.57M) too. This is real, measured
+    # activity -- not a rounding error -- and template_ooo_riscv.xml has
+    # no vector instruction-window component to put it in (McPAT 1.3
+    # predates RVV; its instruction-window model is int/fp only). This
+    # means the O3 McPAT report is structurally missing what your own
+    # data shows is the SINGLE LARGEST activity category in an RVV O3
+    # run. Don't report O3's RVV power number as complete without saying
+    # so -- this isn't a STAT_MAP gap you can fix by finding the right
+    # key, it's a template gap (McPAT has no vector issue-queue/rename
+    # component to model at all).
 }
 
 # Used only when a "soft" key above is not found in stats.txt. Each is a
@@ -68,6 +129,25 @@ FALLBACKS = {
     "icache_misses":         lambda v: 0.0,
     "dcache_read_misses":    lambda v: 0.0,
     "dcache_write_misses":   lambda v: 0.0,
+
+    # OoO-only fallbacks, same "roughly one access per instruction commit"
+    # placeholder logic as the rest of this dict -- cruder than the
+    # in-order fallbacks above since there's no comparable per-benchmark
+    # ratio to lean on. Any O3 run that falls back on these needs
+    # scripts/find_stats.sh follow-up before you trust it, more so than
+    # any other fallback here.
+    "rob_reads":             lambda v: v["total_instructions"],
+    "rob_writes":            lambda v: v["total_instructions"],
+    "rename_reads":          lambda v: v["int_instructions"],
+    "rename_writes":         lambda v: v["int_instructions"],
+    "fp_rename_reads":       lambda v: v["fp_instructions"],
+    "fp_rename_writes":      lambda v: v["fp_instructions"],
+    "iq_reads":              lambda v: v["int_instructions"],
+    "iq_writes":             lambda v: v["int_instructions"],
+    "iq_wakeups":            lambda v: 2 * v["int_instructions"],
+    "fp_iq_reads":           lambda v: v["fp_instructions"],
+    "fp_iq_writes":          lambda v: v["fp_instructions"],
+    "fp_iq_wakeups":         lambda v: 2 * v["fp_instructions"],
 }
 
 
@@ -190,6 +270,21 @@ def main():
 
     with open(args.template) as f:
         xml = f.read()
+
+    # OoO-only stats (see template_ooo_riscv.xml / STAT_MAP comments).
+    # Gated on the template actually referencing GEM5:rob_reads (etc.) so
+    # an in-order or U74 template run doesn't get 12 irrelevant OoO
+    # warnings mixed into its output -- template_inorder_riscv.xml and
+    # template_u74_riscv.xml never mention these keys, so this loop is a
+    # no-op for those.
+    ooo_keys = ["rob_reads", "rob_writes", "rename_reads", "rename_writes",
+                "fp_rename_reads", "fp_rename_writes",
+                "iq_reads", "iq_writes", "iq_wakeups",
+                "fp_iq_reads", "fp_iq_writes", "fp_iq_wakeups"]
+    if any(f"GEM5:{k}" in xml for k in ooo_keys):
+        for name in ooo_keys:
+            if f"GEM5:{name}" in xml:
+                resolve(name, stats, values, errors, warnings)
 
     def sub(m):
         key = m.group(1)

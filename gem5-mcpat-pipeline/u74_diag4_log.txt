@@ -1,0 +1,98 @@
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 25.1.0.1
+gem5 compiled Aug 23 2026 22:32:16
+gem5 started Aug 28 2026 15:53:29
+gem5 executing on WIN-6U9B73L1SJJ, pid 1876
+command line: /home/ahsan/gem5/build/RISCV/gem5.opt --outdir /tmp/u74_diag4 diag_u74_lowmem.py --binary /home/ahsan/galmorph-rvs4-main/build/bench-scalar
+
+>>> STEP: argparse defined, about to parse
+>>> STEP: args parsed OK: binary=/home/ahsan/galmorph-rvs4-main/build/bench-scalar clk_freq=1.2GHz
+>>> STEP: importing gem5.components.boards.simple_board
+>>> STEP: importing gem5.components.memory
+>>> STEP: importing gem5.isas
+>>> STEP: importing gem5.resources.resource
+>>> STEP: importing gem5.simulate.simulator
+>>> STEP: importing U74Processor
+>>> STEP: U74Processor imported OK
+>>> STEP: importing RISCVMatchedCacheHierarchy (may legitimately not exist -- not fatal)
+>>> STEP: RISCVMatchedCacheHierarchy imported OK
+>>> STEP: constructing cache_hierarchy
+>>> STEP: cache_hierarchy constructed OK
+>>> STEP: constructing memory (SingleChannelDDR3_1600)
+>>> STEP: memory constructed OK
+>>> STEP: constructing U74Processor
+>>> STEP: U74Processor constructed OK
+>>> STEP: setting riscv_type=RV32 on U74Processor's cores (the same fix se_config.py's RVVCore already applies -- U74Processor defaults to RV64 since real U74 silicon is 64-bit; never carried this fix over to the U74 configs, which is very likely today's actual bug)
+>>> STEP: processor.cores found, 1 core(s)
+>>> STEP: core[0].core.isa[0].riscv_type set to RV32
+>>> STEP: constructing SimpleBoard
+>>> STEP: SimpleBoard constructed OK
+>>> STEP: constructing BinaryResource
+>>> STEP: BinaryResource constructed OK
+>>> STEP: calling board.set_se_binary_workload(binary)
+>>> STEP: set_se_binary_workload OK
+>>> STEP: constructing Simulator(board=board)
+>>> STEP: Simulator constructed OK
+>>> STEP: calling simulator.run() -- this is where the mmap crash happened last time
+Global frequency set at 1000000000000 ticks per second
+src/arch/riscv/linux/se_workload.cc:73: warn: Unknown operating system; assuming Linux.
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideMaskLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideMaskStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStridedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStridedStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdIndexedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdIndexedStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdWholeRegisterLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdWholeRegisterStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideFaultOnlyFirstLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideSegmentedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideSegmentedStore
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdUnitStrideSegmentedFaultOnlyFirstLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStrideSegmentedLoad
+src/cpu/minor/execute.cc:164: warn: No functional unit for OpClass SimdStrideSegmentedStore
+board.remote_gdb: Listening for connections on port 7000
+src/arch/riscv/faults.cc:299: panic: Illegal instruction 0x100001000c07f657 at pc (0x100fa=>0x100fe).(0=>1): RVV is disabled or VPU is off
+Memory Usage: 8585988 KBytes
+Program aborted at tick 936749317
+--- BEGIN LIBC BACKTRACE ---
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem515print_backtraceEv+0x2b) [0x6488350c157b]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem512abortHandlerEi+0x4c) [0x6488350eaabc]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x45cb0) [0x7c64f9e45cb0]
+/usr/lib/x86_64-linux-gnu/libc.so.6(pthread_kill+0x11c) [0x7c64f9ea642c]
+/usr/lib/x86_64-linux-gnu/libc.so.6(gsignal+0x1e) [0x7c64f9e45b7e]
+/usr/lib/x86_64-linux-gnu/libc.so.6(abort+0x27) [0x7c64f9e288ec]
+/home/ahsan/gem5/build/RISCV/gem5.opt(+0x119aef5) [0x648833cccef5]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem58RiscvISA16IllegalInstFault8invokeSEEPNS_13ThreadContextERKNS_14RefCountingPtrINS_10StaticInstEEE+0xd9) [0x648835409bf9]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem58RiscvISA10RiscvFault6invokeEPNS_13ThreadContextERKNS_14RefCountingPtrINS_10StaticInstEEE+0x3cf) [0x64883540a05f]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem55minor7Execute10commitInstENS_14RefCountingPtrINS0_12MinorDynInstEEEbRNS0_10BranchDataERSt10shared_ptrINS_9FaultBaseEERbSB_+0x94f) [0x6488340b1c8f]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem55minor7Execute6commitEsbbRNS0_10BranchDataE+0x30d7) [0x6488340b6117]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem55minor7Execute8evaluateEv+0xa28) [0x6488340ba218]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem55minor8Pipeline8evaluateEv+0x1c1) [0x6488340ffec1]
+/home/ahsan/gem5/build/RISCV/gem5.opt(+0x25d8118) [0x64883510a118]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem510EventQueue10serviceOneEv+0xb5) [0x6488350da1e5]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem59doSimLoopEPNS_10EventQueueE+0x68) [0x64883510c558]
+/home/ahsan/gem5/build/RISCV/gem5.opt(_ZN4gem58simulateEm+0x26b) [0x64883510cc4b]
+/home/ahsan/gem5/build/RISCV/gem5.opt(+0x1327cdf) [0x648833e59cdf]
+/home/ahsan/gem5/build/RISCV/gem5.opt(+0x11b0f02) [0x648833ce2f02]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(+0x18d105) [0x7c64fb18d105]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(PyObject_Call+0xab) [0x7c64fb1271bb]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(_PyEval_EvalFrameDefault+0x681f) [0x7c64fb28725f]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(+0x2941a5) [0x7c64fb2941a5]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(PyEval_EvalCode+0xd6) [0x7c64fb2791c6]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(+0x27a819) [0x7c64fb27a819]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(PyObject_Vectorcall+0x5e) [0x7c64fb124cde]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(_PyEval_EvalFrameDefault+0x4fa0) [0x7c64fb2859e0]
+/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0(+0x2940f7) [0x7c64fb2940f7]
+/home/ahsan/gem5/build/RISCV/gem5.opt(+0x12f1086) [0x648833e23086]
+/home/ahsan/gem5/build/RISCV/gem5.opt(main+0x217) [0x648833a73747]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x2a601) [0x7c64f9e2a601]
+/usr/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x88) [0x7c64f9e2a718]
+--- END LIBC BACKTRACE ---
+For more info on how to address this issue, please visit https://www.gem5.org/documentation/general_docs/common-errors/ 
+
