@@ -1,0 +1,51 @@
+--- main.c.orig	2026-08-04 21:48:17.193152258 +0000
++++ main.c	2026-08-04 21:48:29.114192199 +0000
+@@ -270,7 +270,7 @@
+         float x_real[32] = {0};
+         float x_imag[32] = {0};
+ 
+-#ifdef __riscv
++#if defined(__riscv) && !defined(FORCE_SCALAR)
+         {
+             size_t vl = __riscv_vsetvl_e32m4(half_state);           // 32 states, one vector
+             vfloat32m1_t vzero = __riscv_vfmv_v_f_f32m1(0.0f, __riscv_vsetvlmax_e32m1());
+@@ -313,7 +313,7 @@
+     }
+ }
+ 
+-#ifdef __riscv
++#if defined(__riscv) && !defined(FORCE_SCALAR)
+ static inline vfloat32m4_t v_exp_m4(vfloat32m4_t x, size_t vl){
+     x = __riscv_vfmax_vf_f32m4(x, -88.0f, vl);
+     x = __riscv_vfmin_vf_f32m4(x,  88.0f, vl);
+@@ -344,7 +344,7 @@
+     const float k = my_sqrt(2.0f / pi);
+     const float coeff = 0.044715f;
+ 
+-#ifdef __riscv
++#if defined(__riscv) && !defined(FORCE_SCALAR)
+     size_t vl;
+     for (int i = 0; i < size; i += (int)vl) {
+         vl = __riscv_vsetvl_e32m4(size - i);
+--- Makefile.orig	2026-08-04 21:48:17.195539566 +0000
++++ Makefile	2026-08-04 21:48:37.073526044 +0000
+@@ -19,10 +19,18 @@
+ $(BUILDDIR)/bench: main.c weights.h image.h profile.h | $(BUILDDIR)
+ 	$(CC) $(CFLAGS) -DBAKED -o $@ main.c
+ 
++# Same baked build, but FORCE_SCALAR makes the RISC-V build take the plain-C
++# reference path instead of the RVV path. Use this to get a scalar RV32IMF
++# binary for the gem5/McPAT vector-vs-scalar comparison.
++bench-scalar: $(BUILDDIR)/bench-scalar
++
++$(BUILDDIR)/bench-scalar: main.c weights.h image.h profile.h | $(BUILDDIR)
++	$(CC) $(CFLAGS) -DBAKED -DFORCE_SCALAR -o $@ main.c
++
+ $(BUILDDIR):
+ 	mkdir -p $(BUILDDIR)
+ 
+ clean:
+ 	rm -rf $(BUILDDIR)
+ 
+-.PHONY: all bench clean
++.PHONY: all bench bench-scalar clean

@@ -1,17 +1,21 @@
-# Build
+# build outputs
 build/
 *.o
 *.out
-*.elf
-*.bin
-
-# Python
+# generated model headers and blobs (regenerate with scripts/bake_weights.py)
+weights.h
+weights.bin
+image.h
+image.bin
+# trained checkpoints (fetch with scripts/fetch_checkpoints.sh)
+checkpoints/*
+!checkpoints/.gitkeep
+*.pt
+*.pth
+# gem5 / McPAT run artifacts
+m5out*/
+mcpat-*.xml
+mcpat-*-out.txt
+# python
 __pycache__/
-*.py[cod]
-.venv/
-
-# Editors / OS
-.vscode/
-.idea/
-*.swp
-.DS_Store
+*.pyc
