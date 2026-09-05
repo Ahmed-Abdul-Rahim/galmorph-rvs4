@@ -13,6 +13,8 @@ Configs: d64_native, d64_seq256, d108_seq256
 import os, sys, argparse, zipfile, pickle, tempfile, numpy as np
 
 CONFIGS = {
+  "d108":        dict(d_model=108, half=54, n_layers=3, seq_len=256,  patch_dim=48,
+                      ckpt="linear_d108_seed2_best.zip"),
   "d64_native":  dict(d_model=64,  half=32, n_layers=2, seq_len=4096, patch_dim=3,
                       ckpt="d64_seq4096__main__seed30485.pt"),
   "d64_seq256":  dict(d_model=64,  half=32, n_layers=2, seq_len=256,  patch_dim=48,
@@ -62,9 +64,13 @@ def emit_h(binpath, arr, macro, outpath):
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--config", required=True, choices=list(CONFIGS))
-    ap.add_argument("--ckpt-dir", default="../../checkpoints")
+    ap.add_argument("--ckpt-dir", default=None)
     ap.add_argument("--seed", type=int, default=0)
     a=ap.parse_args()
+    if a.ckpt_dir is None:
+        for cand in ("checkpoints","../../checkpoints","../checkpoints"):
+            if os.path.isdir(cand): a.ckpt_dir=cand; break
+        a.ckpt_dir = a.ckpt_dir or "checkpoints"
     C=CONFIGS[a.config]; dm=C["d_model"]; half=C["half"]; nl=C["n_layers"]
     pt=os.path.join(a.ckpt_dir, C["ckpt"])
     if not os.path.exists(pt):

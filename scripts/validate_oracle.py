@@ -45,8 +45,12 @@ def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--config", required=True, choices=list(CONFIGS))
     ap.add_argument("--bin", default="./build/host")
-    ap.add_argument("--ckpt-dir", default="../../checkpoints")
+    ap.add_argument("--ckpt-dir", default=None)
     a=ap.parse_args()
+    if a.ckpt_dir is None:
+        for cand in ("checkpoints","../../checkpoints","../checkpoints"):
+            if os.path.isdir(cand): a.ckpt_dir=cand; break
+        a.ckpt_dir=a.ckpt_dir or "checkpoints"
     C=CONFIGS[a.config]; arrs=load_ckpt(os.path.join(a.ckpt_dir,C["ckpt"]))
     np.random.seed(7); img=(np.random.randn(3,64,64).astype("<f4"))*0.15
     img.tofile("/tmp/_val.bin")
