@@ -48,8 +48,8 @@ Prints two RESULT lines, RVV and scalar, each with committed, time, power, energ
 Run one variant at a time (the pipeline reuses its output folders).
 
 ## Expected numbers
-See results/numbers.md. The control experiment reproduces d64_seq256 at 0.931 mJ
-and d108_seq256 at 3.010 mJ (RVV), a 3.2 times gap at equal sequence length.
+See results/numbers.md. The control experiment reproduces d64_seq256 at 0.876 mJ
+and d108_seq256 at 2.857 mJ (RVV), a 3.2 times gap at equal sequence length.
 
 ## Accuracy
 S4D accuracy runs on the GalaxyMNIST test set (Kaggle) with the cells in

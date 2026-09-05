@@ -1,4 +1,4 @@
-# Opt #12 — Fold B̄ into C̄ (the big one)
+# Opt #12 ,  Fold B̄ into C̄ (the big one)
 
 **2.68 B → 1.87 B (−30%).** The largest single step after the recurrent rewrite, and it
 came from a change-of-variables, not more code.
@@ -30,10 +30,10 @@ Two effects stack:
 1. **Fewer ops:** one fewer FMA per state per timestep.
 2. **Register relief (the bigger effect):** opt #8 used *all 32* vector registers.
    Removing the two `B̄` vectors freed two register groups, so the per-timestep
-   temporaries stop spilling to the stack — the whole inner loop now fits.
+   temporaries stop spilling to the stack ,  the whole inner loop now fits.
 
 `C_bar = 2·C·B̄` is a complex multiply computed **once per (channel, state)** in the
-discretization block — negligible cost, paid `H·N = 2048` times, versus the
+discretization block ,  negligible cost, paid `H·N = 2048` times, versus the
 `H·L·N = 8.4M` times the scan runs.
 
 This optimization was suggested by our TA and is exactly the kind of "precompute the

@@ -23,7 +23,7 @@ timestep (state + constants in memory, ordered reduction chained across strips).
 The C forward pass was checked against an independent NumPy reference of the same
 architecture, run on the real checkpoint weights: **max abs prob diff 1.9e-10,
 same argmax.** (Scalar path validated on host; the RVV path is the same math
-strip-mined — verify on-device by confirming the QEMU/gem5 prediction matches.)
+strip-mined ,  verify on-device by confirming the QEMU/gem5 prediction matches.)
 
 ## Files
 - `main.c`         ported model (validated)

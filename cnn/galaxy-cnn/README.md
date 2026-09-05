@@ -1,4 +1,4 @@
-# RVV-optimized Galaxy CNN — GalaxyClassifierGrid, Stem4Full (4L) + 0 S4D
+# RVV-optimized Galaxy CNN ,  GalaxyClassifierGrid, Stem4Full (4L) + 0 S4D
 
 Single-file, RVV-vectorized C implementation of the 38,468-param galaxy
 classifier (the "stem_full (4L) + 0 S4D" model), for the same gem5/McPAT
@@ -16,7 +16,7 @@ GlobalAvgPool -> Linear(64->4) -> softmax
 
 ## Optimizations (RVV 1.0 intrinsics inline, scalar fallback)
 - **conv**: im2col + GEMM, vectorized ACROSS patches (no cross-lane reductions),
-  generic over channels / stride / padding — reuses the TA's im2col+GEMM idea.
+  generic over channels / stride / padding ,  reuses the TA's im2col+GEMM idea.
 - **GroupNorm(8)**: per-group mean/var then affine normalize.
 - **GELU**: tanh-approx with inline Remez exp/tanh (vectorized), same math as S4D.
 - **Linear(64->4)**: S4D-style, vectorized across the outputs.
@@ -25,7 +25,7 @@ GlobalAvgPool -> Linear(64->4) -> softmax
 ## Weights
 Deterministic placeholder weights are generated at startup (before the timed
 region), because instruction count / cycles / energy are **weight-independent**.
-Drop in the trained `Stem4Full` checkpoint later for accuracy — the compute
+Drop in the trained `Stem4Full` checkpoint later for accuracy ,  the compute
 numbers don't change.
 
 ## Build & measure (same as S4D/CNN)

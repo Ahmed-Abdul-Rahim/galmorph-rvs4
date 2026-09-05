@@ -1,4 +1,4 @@
-# Opt #2 — Taylor series → Remez minimax math
+# Opt #2 ,  Taylor series → Remez minimax math
 
 **5.74 B (from 6.87 B), and GELU ~3× cheaper.**
 
@@ -11,7 +11,7 @@ many terms.
 
 ## The fix
 
-Replace each with a **fixed-degree Remez (minimax) polynomial** — the polynomial that
+Replace each with a **fixed-degree Remez (minimax) polynomial** ,  the polynomial that
 minimizes the *maximum* error over the reduction interval, so far fewer terms reach the
 same accuracy, with **no loop and no branches** (fully predictable, pipeline-friendly).
 

@@ -2,8 +2,8 @@
 
 ## How per-layer counts are taken
 
-Instruction counts come from the RISC-V **`instret`** CSR — a hardware counter of
-retired instructions — read with `rdinstret` (see `profile.h`). `model_forward` reads
+Instruction counts come from the RISC-V **`instret`** CSR ,  a hardware counter of
+retired instructions ,  read with `rdinstret` (see `profile.h`). `model_forward` reads
 it before and after each layer; the delta is that layer's dynamic instruction count.
 
 This is:
@@ -32,7 +32,7 @@ The reported figure per optimization is the **least of `-O0`, `-O2`, `-O3`** bui
 A diagnostic that bracketed a single channel's 4096-step scan showed **~3100 retired
 instructions per timestep**, even though the compiled inner loop is only ~16
 instructions. Isolating pieces revealed that QEMU models **cross-lane** vector
-instructions — the ordered reduction `vfredosum.vs` and the permute `vslidedown` — as
+instructions ,  the ordered reduction `vfredosum.vs` and the permute `vslidedown` ,  as
 long *sequential* helper chains (~3100 and ~900 retired instructions respectively for a
 32-element `m4` group), while per-lane arithmetic is cheap.
 
@@ -42,6 +42,6 @@ Consequences, all confirmed by experiment (see [`07-negative-results.md`](07-neg
 - So the ordered `vfredosum.vs` is the **cheapest reduction available**, and opt #14
   keeps it.
 
-This is a property of the *simulator's* cost model, not of real silicon — on hardware a
+This is a property of the *simulator's* cost model, not of real silicon ,  on hardware a
 `vfredosum` is a handful of cycles. It is documented here so the numbers are
 interpreted correctly.
